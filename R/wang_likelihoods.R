@@ -100,180 +100,181 @@ calcLinearPredictor <- function(data, X, Z, parms) {
 }
 
 
-#' calculate sum wi sum wji exp(XB + Zb) for each failure time. these are the weighted sums of linear predictors for
-#' the risk set at each failure time. Also multiplies these sets by X or Z or whatever when this is needed.
+#' #' calculate sum wi sum wji exp(XB + Zb) for each failure time. these are the weighted sums of linear predictors for
+#' #' the risk set at each failure time. Also multiplies these sets by X or Z or whatever when this is needed.
+#' #'
+#' #' @param data tibble containing all the data.
+#' #' @param vars names of variable to multiply the risk set by. These variables will be pivoted longer. defaults to NULL.
+#' #' @param varCol name to the product of vars and wi \* wji \* A.
+#' #' @param wi cluster level weights
+#' #' @param wji individual level weights within clusters
+#' #' @param A exponentiated linear predictor. i.e. exp(XB + Zb)
+#' #' @param index numerical index for event times.
+#' #'
+#' #' @returns Returns the tibble provided in data. If vars = NULL, the data will have the same number of rows, and two
+#' #' additional columns - wi_wji_A is the product of the exponetiated linear predictor and the weighting variables.
+#' #' cumsum_wi_wji_A is the cumulative sum, taken from the bottom of the data up. This is related to the idea of
+#' #' risk sets.
+#' #'
 #'
-#' @param data tibble containing all the data.
-#' @param vars names of variable to multiply the risk set by. These variables will be pivoted longer. defaults to NULL.
-#' @param varCol name to the product of vars and wi \* wji \* A.
-#' @param wi cluster level weights
-#' @param wji individual level weights within clusters
-#' @param A exponentiated linear predictor. i.e. exp(XB + Zb)
-#' @param index numerical index for event times.
+#' calcRiskSets <- function(data, vars = NULL, varCol = NULL, wi = wi, wji = wji, A = A, index = index) {
+#'   if (is.null(vars)) {
+#'     data |>
+#'       dplyr::mutate(wi_wji_A = {{ wi }} * {{ wji }} * {{ A }}) |>
+#'       dplyr::arrange(dplyr::desc({{ index }})) |>
+#'       dplyr::mutate(cumsum_wi_wji_A = cumsum(wi_wji_A)) |>
+#'       dplyr::arrange(index)
+#'   } else {
+#'     varColName <- rlang::sym(varCol)
 #'
-#' @returns Returns the tibble provided in data. If vars = NULL, the data will have the same number of rows, and two
-#' additional columns - wi_wji_A is the product of the exponetiated linear predictor and the weighting variables.
-#' cumsum_wi_wji_A is the cumulative sum, taken from the bottom of the data up. This is related to the idea of
-#' risk sets.
+#'     long_data <- data |>
+#'       tidyr::pivot_longer(cols = dplyr::all_of(vars), names_to = {{ varCol }}) |>
+#'       dplyr::mutate(
+#'         wi_wji_A = {{ wi }} * {{ wji }} * {{ A }},
+#'         "{{varColName}}_wi_wji_A" := wi_wji_A * value,
+#'         "{{varColName}}" := forcats::as_factor(!!varColName)
+#'       )
 #'
+#'     long_data |>
+#'       dplyr::arrange(dplyr::desc({{ index }})) |>
+#'       dplyr::group_by(!!varColName) |>
+#'       dplyr::mutate(
+#'         cumsum_wi_wji_A = cumsum(wi_wji_A),
+#'         "cumsum_{{varColName}}_wi_wji_A" := cumsum(!!rlang::sym(glue::glue("{varCol}_wi_wji_A"))),
+#'         cumsum_wi_wji_A_squared = cumsum_wi_wji_A^2
+#'       ) |>
+#'       dplyr::arrange(index)
+#'   }
+#' }
 
-calcRiskSets <- function(data, vars = NULL, varCol = NULL, wi = wi, wji = wji, A = A, index = index) {
-  if (is.null(vars)) {
-    data |>
-      dplyr::mutate(wi_wji_A = {{ wi }} * {{ wji }} * {{ A }}) |>
-      dplyr::arrange(dplyr::desc({{ index }})) |>
-      dplyr::mutate(cumsum_wi_wji_A = cumsum(wi_wji_A)) |>
-      dplyr::arrange(index)
-  } else {
-    varColName <- rlang::sym(varCol)
-
-    long_data <- data |>
-      tidyr::pivot_longer(cols = dplyr::all_of(vars), names_to = {{ varCol }}) |>
-      dplyr::mutate(
-        wi_wji_A = {{ wi }} * {{ wji }} * {{ A }},
-        "{{varColName}}_wi_wji_A" := wi_wji_A * value,
-        "{{varColName}}" := forcats::as_factor(!!varColName)
-      )
-
-    long_data |>
-      dplyr::arrange(dplyr::desc({{ index }})) |>
-      dplyr::group_by(!!varColName) |>
-      dplyr::mutate(
-        cumsum_wi_wji_A = cumsum(wi_wji_A),
-        "cumsum_{{varColName}}_wi_wji_A" := cumsum(!!rlang::sym(glue::glue("{varCol}_wi_wji_A"))),
-        cumsum_wi_wji_A_squared = cumsum_wi_wji_A^2
-      ) |>
-      dplyr::arrange(index)
-  }
-}
-
-
-#' calculate the penalty terms for dlp_b_b
 #'
-#' Calcualtes the penalty term for the second partial derivative of the pseudo-partial likelihood
-#' with respect to the random effects, b.
+#' #' calculate the penalty terms for dlp_b_b
+#' #'
+#' #' Calcualtes the penalty term for the second partial derivative of the pseudo-partial likelihood
+#' #' with respect to the random effects, b.
+#' #'
+#' #' @param data tibble of data.
+#' #' @param D_theta diagonal matrix for given theta. Row and column names must
+#' #' match Z columns in the data
+#' #' @param Z character vector of columns in data indicating cluster membership
+#' #'
 #'
-#' @param data tibble of data.
-#' @param D_theta diagonal matrix for given theta. Row and column names must
-#' match Z columns in the data
-#' @param Z character vector of columns in data indicating cluster membership
+#' calcPenalty <- function(data, D, Z, wi, i) {
 #'
-
-calcPenalty <- function(data, D, Z, wi, i) {
-
-  # cluster weights
-  cluster_weights <- data |>
-    dplyr::distinct({{ i }}, {{ wi }}) |>
-    dplyr::pull({{ wi }})
-
-  # diagonal matrix with nr = length(Z)
-  penalty <- -0.5 * diag(cluster_weights) %*% solve(D)
-
-  rownames(penalty) <- colnames(penalty)
-
-  penalty |> tibble::as_tibble(rownames = "Zi") |>
-    tidyr::pivot_longer(cols = dplyr::all_of(Z), names_to = "Zm", values_to = "penalty")
-
-  # DTibble <- tibble::tibble(
-  #   Zi = colnames(D),
-  #   tibble::as_tibble(solve(D))
-  # ) |>
-  #   tidyr::pivot_longer(-1, names_to = "Zm")
-  #
-  #
-  # clusterWeights <- data |>
-  #   dplyr::select(dplyr::all_of(Z), {{ wi }}) |>
-  #   dplyr::distinct() |>
-  #   dplyr::arrange(dplyr::across(dplyr::all_of(Z), dplyr::desc)) |>
-  #   dplyr::mutate(Zi = dplyr::all_of(Z), .before = dplyr::all_of(Z)) |>
-  #   tidyr::pivot_longer(cols = dplyr::all_of(Z), names_to = "Zm") |>
-  #   dplyr::mutate(wi = wi * value) |>
-  #   dplyr::select(Zi, Zm, wi)
-  #
-  # dplyr::full_join(clusterWeights, DTibble, by = c("Zi", "Zm")) |>
-  #   dplyr::mutate(penalty = wi * value) |>
-  #   dplyr::select(Zi, Zm, penalty) |>
-  #   dplyr::mutate(dplyr::across(c(Zi, Zm), forcats::as_factor))
-}
-
-# calcPenalty(myData, D_theta, zColumns)
-#
-
-
-
-#' pseudo likelihood in Wang 2019
+#'   # cluster weights
+#'   cluster_weights <- data |>
+#'     dplyr::distinct({{ i }}, {{ wi }}) |>
+#'     dplyr::pull({{ wi }})
 #'
-#' returns the likelihood proposed in Wang 2019
+#'   # diagonal matrix with nr = length(Z)
+#'   penalty <- -0.5 * diag(cluster_weights) %*% solve(D)
 #'
-#' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
-#' @param X character vector containing names of X columns in data.
-#' @param Z character vector containing names of Z columns in data.
-#' @param t column in data with time of failure/censoring data.
-#' @param i column in data that identifies clusters.
-#' @param wi column in data containing cluster-level weights.
-#' @param wji column in data containing within-cluster weights.
-#' @param dij column in data indicating if observation was censored or a failure.
-#' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
-#' @param data tibble with all these columns
+#'   rownames(penalty) <- colnames(penalty)
 #'
-#' @export
-
-
-
-lp <- function(parms, X, Z, t, i, wi, wji, dij, D, data) {
-  b <- parms[-seq_len(length.out = length(X))]
-
-  penalty <- data |>
-    dplyr::distinct({{ i }}, {{ wi }}) |>
-    dplyr::mutate(
-      theta_inverse = diag(solve(D)),
-      penalty = {{ wi }} * dplyr::all_of(b)^2 * theta_inverse
-    ) |>
-    dplyr::summarise(penalty = 0.5 * sum(penalty)) |>
-    dplyr::pull(penalty)
-
-  sortedIndexedData <- sortAndIndex(data, {{ t }})
-
-  terms1 <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z, parms = parms)
-
-  terms2 <- calcRiskSets(terms1)
-
-  ll <- terms2 |>
-    dplyr::mutate(li = {{ wi }} * {{ wji }} * {{ dij }} * (lp - log(cumsum_wi_wji_A))) |>
-    dplyr::summarise(ll = sum(li)) |>
-    dplyr::pull(ll)
-
-  ll - penalty
-}
+#'   penalty |> tibble::as_tibble(rownames = "Zi") |>
+#'     tidyr::pivot_longer(cols = dplyr::all_of(Z), names_to = "Zm", values_to = "penalty")
+#'
+#'   # DTibble <- tibble::tibble(
+#'   #   Zi = colnames(D),
+#'   #   tibble::as_tibble(solve(D))
+#'   # ) |>
+#'   #   tidyr::pivot_longer(-1, names_to = "Zm")
+#'   #
+#'   #
+#'   # clusterWeights <- data |>
+#'   #   dplyr::select(dplyr::all_of(Z), {{ wi }}) |>
+#'   #   dplyr::distinct() |>
+#'   #   dplyr::arrange(dplyr::across(dplyr::all_of(Z), dplyr::desc)) |>
+#'   #   dplyr::mutate(Zi = dplyr::all_of(Z), .before = dplyr::all_of(Z)) |>
+#'   #   tidyr::pivot_longer(cols = dplyr::all_of(Z), names_to = "Zm") |>
+#'   #   dplyr::mutate(wi = wi * value) |>
+#'   #   dplyr::select(Zi, Zm, wi)
+#'   #
+#'   # dplyr::full_join(clusterWeights, DTibble, by = c("Zi", "Zm")) |>
+#'   #   dplyr::mutate(penalty = wi * value) |>
+#'   #   dplyr::select(Zi, Zm, penalty) |>
+#'   #   dplyr::mutate(dplyr::across(c(Zi, Zm), forcats::as_factor))
+#' }
+#'
+#' # calcPenalty(myData, D_theta, zColumns)
+#' #
+#'
+#'
+#'
+#' #' pseudo likelihood in Wang 2019
+#' #'
+#' #' returns the likelihood proposed in Wang 2019
+#' #'
+#' #' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
+#' #' @param X character vector containing names of X columns in data.
+#' #' @param Z character vector containing names of Z columns in data.
+#' #' @param t column in data with time of failure/censoring data.
+#' #' @param i column in data that identifies clusters.
+#' #' @param wi column in data containing cluster-level weights.
+#' #' @param wji column in data containing within-cluster weights.
+#' #' @param dij column in data indicating if observation was censored or a failure.
+#' #' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
+#' #' @param data tibble with all these columns
+#' #'
+#' #' @export
+#'
+#'
+#'
+#' lp <- function(parms, X, Z, t, i, wi, wji, dij, D, data) {
+#'   b <- parms[-seq_len(length.out = length(X))]
+#'
+#'   penalty <- data |>
+#'     dplyr::distinct({{ i }}, {{ wi }}) |>
+#'     dplyr::mutate(
+#'       theta_inverse = diag(solve(D)),
+#'       penalty = {{ wi }} * dplyr::all_of(b)^2 * theta_inverse
+#'     ) |>
+#'     dplyr::summarise(penalty = 0.5 * sum(penalty)) |>
+#'     dplyr::pull(penalty)
+#'
+#'   sortedIndexedData <- sortAndIndex(data, {{ t }})
+#'
+#'   terms1 <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z, parms = parms)
+#'
+#'   terms2 <- calcRiskSets(terms1)
+#'
+#'   ll <- terms2 |>
+#'     dplyr::mutate(li = {{ wi }} * {{ wji }} * {{ dij }} * (lp - log(cumsum_wi_wji_A))) |>
+#'     dplyr::summarise(ll = sum(li)) |>
+#'     dplyr::pull(ll)
+#'
+#'   ll - penalty
+#' }
 
 # lp(parms = c(B, b), X = xColumns, Z = zColumns, t = t, wi = wi, wji = wji, dij = dij, D = D_theta, i = cluster, data = myData)
-
-
 #'
-#' pseudo likelihood in Wang 2019, multiplied by -1
+#' #'
+#' #'
+#' #' pseudo likelihood in Wang 2019, multiplied by -1
+#' #'
+#' #' returns the likelihood proposed in Wang 2019, multiplied by -1, which is required by many optimisers because they find the min not the max.
+#' #'
+#' #' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
+#' #' @param X character vector containing names of X columns in data.
+#' #' @param Z character vector containing names of Z columns in data.
+#' #' @param t column in data with time of failure/censoring data.
+#' #' @param i column in data that identifies clusters.
+#' #' @param wi column in data containing cluster-level weights.
+#' #' @param wji column in data containing within-cluster weights.
+#' #' @param dij column in data indicating if observation was censored or a failure.
+#' #' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
+#' #' @param data tibble with all these columns
+#' #'
+#' #'
+#' #'
+#' #'
 #'
-#' returns the likelihood proposed in Wang 2019, multiplied by -1, which is required by many optimisers because they find the min not the max.
-#'
-#' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
-#' @param X character vector containing names of X columns in data.
-#' @param Z character vector containing names of Z columns in data.
-#' @param t column in data with time of failure/censoring data.
-#' @param i column in data that identifies clusters.
-#' @param wi column in data containing cluster-level weights.
-#' @param wji column in data containing within-cluster weights.
-#' @param dij column in data indicating if observation was censored or a failure.
-#' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
-#' @param data tibble with all these columns
-#'
-#'
-
-
-minuslp <- function(parms, X, Z, t, i, wi, wji, dij, D, data) {
-  -1 * lp(
-    parms = parms, X = X, Z = Z, t = {{ t }}, i = {{ i }}, wi = {{ wi }}, wji = {{ wji }},
-    dij = {{ dij }}, D = D, data = data
-  )
-}
+#' minuslp <- function(parms, X, Z, t, i, wi, wji, dij, D, data) {
+#'   -1 * lp(
+#'     parms = parms, X = X, Z = Z, t = {{ t }}, i = {{ i }}, wi = {{ wi }}, wji = {{ wji }},
+#'     dij = {{ dij }}, D = D, data = data
+#'   )
+#' }
 
 
 #' partial derivative with respect to the fixed effects, \eqn{\beta}.
