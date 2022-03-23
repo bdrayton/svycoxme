@@ -1,4 +1,8 @@
-
+#' create a dataset for testing cox model stuff.
+#'
+#' takes three fixed effects and one parameter, theta, that represents
+#' the variance of random effects drawn from a normal distribution.
+#'
 
 
 one_dataset <- function(control) {
@@ -123,7 +127,11 @@ lp <- function(parms, X, t, cluster, dij, D, data) {
     dplyr::summarise(ll = sum(li)) |>
     dplyr::pull(ll)
 
-  ll - penalty
+  ppl <- ll - penalty
+
+  attr(ppl, "penalty") <- penalty
+
+  ppl
 
 }
 

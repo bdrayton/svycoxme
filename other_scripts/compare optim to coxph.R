@@ -2,6 +2,9 @@
 
 
 library(ggplot2)
+library(dplyr)
+
+res_df <- readr::read_rds("C:/Users/bdra011/OneDrive - The University of Auckland/PhD/outputs/simulations/data/results_optim_vs_coxph.rds")
 
 res_df %>%
   group_by(method) %>%

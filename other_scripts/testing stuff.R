@@ -1,21 +1,24 @@
 
 
+my_beta = c(1, -0.7, 0.5)
+my_theta = 1
 
-sample_data <- one_dataset(control = list(k = 50, nk = 4, beta = c(1, -0.7, 0.5), theta = 1))
+sample_data <- one_dataset(control = list(k = 50, nk = 4, beta = my_beta, theta = my_theta))
 
-d1 <- dplyr::bind_cols(sample_data, data.frame(Z))
+my_parms <- c(my_beta, b <- attr(sample_data, "random_effects"))
 
-theta = 1
+D = my_theta * diag(length(b))
 
-D = theta * diag(50)
+Z_matrix <- model.matrix( ~ as.factor(M) - 1, data = sample_data)
+
+colnames(Z_matrix) <- paste0("Z", seq(ncol(Z_matrix)))
+
+data_with_Z <- dplyr::bind_cols(sample_data, data.frame(Z_matrix))
 
 
+d2 <- sortAndIndex(data_with_Z, t)
 
-
-
-d2 <- sortAndIndex(d1, t)
-
-d3 <- calcLinearPredictor(data = d2, X = c("X1", "X2", "X3"), Z = colnames(Z), parms = myParms)
+d3 <- calcLinearPredictor(data = d2, X = c("X1", "X2", "X3"), Z = colnames(Z_matrix), parms = my_parms)
 
 
 # checking the linear predictor
@@ -31,8 +34,22 @@ d3 <- calcLinearPredictor(data = d2, X = c("X1", "X2", "X3"), Z = colnames(Z), p
 
 d4 <- calcRiskSets(d3)
 
+sum(d4$A)
 
 
+
+fit <- survival::coxph(survival::Surv(t, stat) ~ X1 + X2 + X3,data = sample_data)
+
+start_parameters = c(coef(fit), rep(0, length(b)))
+
+fit_optim <- optim(par = start_parameters,
+                   fn = minuslp,
+                   X = c("X1", "X2", "X3"),
+                   t = t,
+                   cluster = M,
+                   dij = stat,
+                   D = D,
+                   data = sample_data)
 
 
 
@@ -50,7 +67,7 @@ D = theta * diag(b)
 
 debugonce(lp)
 
-     lp(myParms, X = c("X1", "X2", "X3"), t = t, cluster = M, dij = stat, D = D, data = sample_data)
+     lp(my_parms, X = c("X1", "X2", "X3"), t = t, cluster = M, dij = stat, D = D, data = sample_data)
 minuslp(myParms, X = c("X1", "X2", "X3"), t = t, cluster = M, dij = stat, D = D, data = sample_data)
 
 fit_coxph <-
@@ -66,11 +83,34 @@ fit_coxph <-
     warning = function(w) w,
     error = function(e) e)
 
+fit_coxph$penalty
 
 
 
 my_beta <- c(1, 1, 1)
 my_theta <- 1
+
+library(coxme)
+fit_coxme <- coxme::coxme(survival::Surv(t, stat) ~ X1 + X2 + X3 + (1 | M), data = sample_data)
+
+lp(c(fixef(fit_coxme), ranef(fit_coxme)$M),
+   X = c("X1", "X2", "X3"), t = t, cluster = M, dij = stat, D = D_theta_fit, data = sample_data)
+
+# These should be the same as returned by coxme
+fit_coxme$loglik
+fit_coxme$penalty
+
+
+
+b_fit <- ranef(fit_coxme)$M
+
+theta_fit <- VarCorr(fit_coxme)$M
+
+D_theta_fit <- theta_fit * diag(length(b_fit))
+
+0.5 * b_fit %*% D_theta_fit %*% b_fit
+
+fit_coxme$penalty
 
 
 one_rep <- function(){
