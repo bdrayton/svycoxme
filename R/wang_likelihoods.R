@@ -1,20 +1,5 @@
 #'
-#' #' sort and index data
-#' #'
-#' #' Sorts data by one or more variables, and adds an index to the sorted tibble
-#' #'
-#' #' @param data A tibble to sort
-#' #' @param sortVars tidyselected variables to sort by
-#' #' @param index name to give the index variable. Default is "index".
-#' #'
-#' #' @export
-#' #'
-#'
-#' sortAndIndex <- function(data, sort_vars, index = "index") {
-#'   data |>
-#'     dplyr::arrange(dplyr::across({{ sort_vars }})) |>
-#'     dplyr::mutate({{ index }} := dplyr::row_number(), .before = everything())
-#' }
+
 #'
 #' #'
 #' #' #' helper for calcCrossProducts
