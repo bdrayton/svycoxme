@@ -19,6 +19,45 @@ sortAndIndex <- function(data, sort_vars, index = "index") {
 }
 
 
+#' calculate (XB + Zb) and exp(XB + Zb)
+#'
+#' @param data a tibble containing X, Z. It can have other columns too.
+#' @param X character vector of X columns, i.e. fixed-effect covariates
+#' @param Z character vector of Z columns, i.e. random-effect covariates. Currently this is a set of indicator variables describing cluster membership
+#' @param parms vector of fixed and random effects of length ncol(data[X]) + ncol(data[Z])
+#'
+#' @returns The tibble given to \code{data} is returned with two additional columns. lp contains (XB + Zb) and A contains exp(XB + Zb)
+#'
+#' @importFrom magrittr %>%
+#'
+
+
+calcLinearPredictor <- function(data, X, Z, parms) {
+  tempCols <- glue::glue("p{c(X, Z)}")
+
+  long_data <- data %>%
+    dplyr::select(index, all_of(X), all_of(Z)) %>%
+    tidyr::pivot_longer(cols = c(all_of(X), all_of(Z)))
+
+  wide_data <- long_data %>%
+    dplyr::mutate(
+      effects = rep(dplyr::all_of(parms), nrow(data)),
+      partial_linear_pred = value * effects
+    ) %>%
+    dplyr::select(index, name, partial_linear_pred) %>%
+    tidyr::pivot_wider(
+      values_from = partial_linear_pred, names_from = name,
+      names_prefix = "p"
+    )
+
+  dplyr::inner_join(data, wide_data, by = "index") %>%
+    dplyr::mutate(
+      lp = rowSums(dplyr::select(., dplyr::all_of(tempCols))),
+      A = exp(lp)
+    ) %>%
+    dplyr::select(-dplyr::all_of(tempCols))
+}
+
 
 
 
