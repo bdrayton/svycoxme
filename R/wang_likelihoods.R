@@ -16,48 +16,48 @@ sortAndIndex <- function(data, sort_vars, index = "index") {
     dplyr::mutate({{ index }} := dplyr::row_number(), .before = everything())
 }
 
-
-#' helper for calcCrossProducts
 #'
-#' takes a tibble and selects everything in the character vector f, as well
-#' an index variable from sortAndIndex. pivots everything in f to long format,
-#' and converts the 'name' column to a factor. Levels are determined by order they appear in the data.
+#' #' helper for calcCrossProducts
+#' #'
+#' #' takes a tibble and selects everything in the character vector f, as well
+#' #' an index variable from sortAndIndex. pivots everything in f to long format,
+#' #' and converts the 'name' column to a factor. Levels are determined by order they appear in the data.
+#' #'
+#' #' @param data A tibble containing an index column called index, and all columns named in f
+#' #' @param f character vector of columns to make longer.
+#' #'
 #'
-#' @param data A tibble containing an index column called index, and all columns named in f
-#' @param f character vector of columns to make longer.
+#' makeLong <- function(data, f) {
+#'   data |>
+#'     dplyr::select(index, all_of(f)) |>
+#'     tidyr::pivot_longer(cols = -1) |>
+#'     dplyr::mutate(name = forcats::as_factor(name))
+#' }
 #'
-
-makeLong <- function(data, f) {
-  data |>
-    dplyr::select(index, all_of(f)) |>
-    tidyr::pivot_longer(cols = -1) |>
-    dplyr::mutate(name = forcats::as_factor(name))
-}
-
-#' Get the cross products
+#' #' Get the cross products
+#' #'
+#' #' Calculate cross products for a set of numeric variables.
+#' #'
+#' #' @param data a tibble containing the numeric variables to cross multiply
+#' #' @param f1 first set of variables.
+#' #' @param f2 second set of variables (can be the same variables as in f1)
+#' #' @param n1 name for the first set of variables
+#' #' @param n2 name for the second set of variables.
+#' #'
 #'
-#' Calculate cross products for a set of numeric variables.
+#' calcCrossProducts <- function(data, f1, f2, n1, n2) {
+#'   l1 <- makeLong(data, f1)
 #'
-#' @param data a tibble containing the numeric variables to cross multiply
-#' @param f1 first set of variables.
-#' @param f2 second set of variables (can be the same variables as in f1)
-#' @param n1 name for the first set of variables
-#' @param n2 name for the second set of variables.
+#'   l2 <- makeLong(data, f2)
 #'
-
-calcCrossProducts <- function(data, f1, f2, n1, n2) {
-  l1 <- makeLong(data, f1)
-
-  l2 <- makeLong(data, f2)
-
-  dplyr::full_join(l1, l2, by = "index") |>
-    dplyr::mutate("{n1}{n2}" := value.x * value.y) |>
-    dplyr::select(
-      index, "{n1}" := name.x, "{n2}" := name.y,
-      !!rlang::sym(glue::glue("{n1}{n2}"))
-    )
-}
-
+#'   dplyr::full_join(l1, l2, by = "index") |>
+#'     dplyr::mutate("{n1}{n2}" := value.x * value.y) |>
+#'     dplyr::select(
+#'       index, "{n1}" := name.x, "{n2}" := name.y,
+#'       !!rlang::sym(glue::glue("{n1}{n2}"))
+#'     )
+#' }
+#'
 
 
 #' calculate (XB + Zb) and exp(XB + Zb)
@@ -275,117 +275,117 @@ calcLinearPredictor <- function(data, X, Z, parms) {
 #'     dij = {{ dij }}, D = D, data = data
 #'   )
 #' }
-
-
-#' partial derivative with respect to the fixed effects, \eqn{\beta}.
 #'
-#' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
-#' @param X character vector containing names of X columns in data.
-#' @param Z character vector containing names of Z columns in data.
-#' @param t column in data with time of failure/censoring data.
-#' @param wi column in data containing cluster-level weights.
-#' @param wji column in data containing within-cluster weights.
-#' @param dij column in data indicating if observation was censored or a failure.
-#' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
-#' @param data tibble with all these columns
-
-
-dlp_beta <- function(parms, X, Z, t, wi, wji, dij, data) {
-
-  B <- parms[1:length(X)]
-
-  b <- parms[-(1:length(X))]
-
-  sortedIndexedData <- sortAndIndex(data, sort_vars = {{ t }})
-
-  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z, parms = parms)
-
-  addedCumsums <- calcRiskSets(addedLP, X, "Xr")
-
-  ll <- addedCumsums |>
-    dplyr::mutate(li = {{ wi }} * {{ wji }} * {{ dij }} * (value - cumsum_Xr_wi_wji_A / cumsum_wi_wji_A)) |>
-    dplyr::summarise(ll = sum(li), .groups = "drop")
-
-  ll
-}
-
-
-# dlp_beta(parms = c(B, b), X = xColumns, Z = zColumns, t = t, wi = wi, wji = wji, dij = dij, data = myData)
-
-#' partial derivative with respect to the random effects, b.
 #'
-#' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
-#' @param X character vector containing names of X columns in data.
-#' @param Z character vector containing names of Z columns in data.
-#' @param t column in data with time of failure/censoring data.
-#' @param wi column in data containing cluster-level weights.
-#' @param wji column in data containing within-cluster weights.
-#' @param dij column in data indicating if observation was censored or a failure.
-#' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
-#' @param data tibble with all these columns
-
-
-dlp_b <- function(parms, X, Z, t, wi, wji, dij, i, D, data) {
-
-  B <- parms[1:length(X)]
-
-  b <- parms[-(1:length(X))]
-
-  penalty <- data |>
-    dplyr::distinct({{ i }}, {{ wi }}) |>
-    dplyr::mutate(
-      Zi = forcats::as_factor(dplyr::all_of(Z)),
-      theta_inverse = diag(solve(D)),
-      penalty = 0.5 * {{ wi }} * dplyr::all_of(b) * theta_inverse
-    ) |>
-    dplyr::select(Zi, penalty)
-
-  sortedIndexedData <- sortAndIndex(data, sort_vars = {{ t }})
-
-  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z, parms = parms)
-
-  addedCumSums <- calcRiskSets(addedLP, Z, "Zi")
-
-  ll_unpenalized <- addedCumSums |>
-    dplyr::mutate(li = {{ wi }} * {{ wji }} * {{ dij }} * (value - cumsum_Zi_wi_wji_A / cumsum_wi_wji_A)) |>
-    dplyr::summarise(ll = sum(li), .groups = "drop")
-
-  dplyr::inner_join(ll_unpenalized, penalty, by = "Zi") |>
-    dplyr::mutate(ll = ll - penalty) |>
-    dplyr::select(Zi, ll)
-
-}
-
-#' lp_grd
+#' #' partial derivative with respect to the fixed effects, \eqn{\beta}.
+#' #'
+#' #' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
+#' #' @param X character vector containing names of X columns in data.
+#' #' @param Z character vector containing names of Z columns in data.
+#' #' @param t column in data with time of failure/censoring data.
+#' #' @param wi column in data containing cluster-level weights.
+#' #' @param wji column in data containing within-cluster weights.
+#' #' @param dij column in data indicating if observation was censored or a failure.
+#' #' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
+#' #' @param data tibble with all these columns
 #'
-#' combine the gradient function for \eqn{\beta} and b to make one vector of
-#' gradients.
 #'
-#' @export
-
-lp_grd <- function(parms, X, Z, t, wi, i, D, wji, dij, data) {
-
-  l4 <- dlp_beta(parms = parms, X = X, Z = Z, t = {{t}}, wi = {{wi}},
-                 wji = {{wji}}, dij = {{dij}}, data = data) %>%
-    dplyr::pull(ll)
-
-  l5 <- dlp_b(parms = parms, X = X, Z = Z, t = {{t}}, wi = {{wi}},
-              i = {{i}}, D = D, wji = {{wji}}, dij = {{dij}}, data = data) %>%
-    dplyr::pull(ll)
-
-  c(l4, l5)
-
-}
-
-#' @export
-minus_lp_grd <- function(parms, X, Z, t, wi, i, D, wji, dij, data){
-
-  -lp_grd(parms = parms, X = X, Z = Z,
-          t = {{ t }}, wi = {{ wi }}, i = {{ i }}, D = D, wji = {{ wji }},
-          dij = {{ dij }}, data = data)
-
-}
-
+#' dlp_beta <- function(parms, X, Z, t, wi, wji, dij, data) {
+#'
+#'   B <- parms[1:length(X)]
+#'
+#'   b <- parms[-(1:length(X))]
+#'
+#'   sortedIndexedData <- sortAndIndex(data, sort_vars = {{ t }})
+#'
+#'   addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z, parms = parms)
+#'
+#'   addedCumsums <- calcRiskSets(addedLP, X, "Xr")
+#'
+#'   ll <- addedCumsums |>
+#'     dplyr::mutate(li = {{ wi }} * {{ wji }} * {{ dij }} * (value - cumsum_Xr_wi_wji_A / cumsum_wi_wji_A)) |>
+#'     dplyr::summarise(ll = sum(li), .groups = "drop")
+#'
+#'   ll
+#' }
+#'
+#'
+#' # dlp_beta(parms = c(B, b), X = xColumns, Z = zColumns, t = t, wi = wi, wji = wji, dij = dij, data = myData)
+#'
+#' #' partial derivative with respect to the random effects, b.
+#' #'
+#' #' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
+#' #' @param X character vector containing names of X columns in data.
+#' #' @param Z character vector containing names of Z columns in data.
+#' #' @param t column in data with time of failure/censoring data.
+#' #' @param wi column in data containing cluster-level weights.
+#' #' @param wji column in data containing within-cluster weights.
+#' #' @param dij column in data indicating if observation was censored or a failure.
+#' #' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
+#' #' @param data tibble with all these columns
+#'
+#'
+#' dlp_b <- function(parms, X, Z, t, wi, wji, dij, i, D, data) {
+#'
+#'   B <- parms[1:length(X)]
+#'
+#'   b <- parms[-(1:length(X))]
+#'
+#'   penalty <- data |>
+#'     dplyr::distinct({{ i }}, {{ wi }}) |>
+#'     dplyr::mutate(
+#'       Zi = forcats::as_factor(dplyr::all_of(Z)),
+#'       theta_inverse = diag(solve(D)),
+#'       penalty = 0.5 * {{ wi }} * dplyr::all_of(b) * theta_inverse
+#'     ) |>
+#'     dplyr::select(Zi, penalty)
+#'
+#'   sortedIndexedData <- sortAndIndex(data, sort_vars = {{ t }})
+#'
+#'   addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z, parms = parms)
+#'
+#'   addedCumSums <- calcRiskSets(addedLP, Z, "Zi")
+#'
+#'   ll_unpenalized <- addedCumSums |>
+#'     dplyr::mutate(li = {{ wi }} * {{ wji }} * {{ dij }} * (value - cumsum_Zi_wi_wji_A / cumsum_wi_wji_A)) |>
+#'     dplyr::summarise(ll = sum(li), .groups = "drop")
+#'
+#'   dplyr::inner_join(ll_unpenalized, penalty, by = "Zi") |>
+#'     dplyr::mutate(ll = ll - penalty) |>
+#'     dplyr::select(Zi, ll)
+#'
+#' }
+#'
+#' #' lp_grd
+#' #'
+#' #' combine the gradient function for \eqn{\beta} and b to make one vector of
+#' #' gradients.
+#' #'
+#' #' @export
+#'
+#' lp_grd <- function(parms, X, Z, t, wi, i, D, wji, dij, data) {
+#'
+#'   l4 <- dlp_beta(parms = parms, X = X, Z = Z, t = {{t}}, wi = {{wi}},
+#'                  wji = {{wji}}, dij = {{dij}}, data = data) %>%
+#'     dplyr::pull(ll)
+#'
+#'   l5 <- dlp_b(parms = parms, X = X, Z = Z, t = {{t}}, wi = {{wi}},
+#'               i = {{i}}, D = D, wji = {{wji}}, dij = {{dij}}, data = data) %>%
+#'     dplyr::pull(ll)
+#'
+#'   c(l4, l5)
+#'
+#' }
+#'
+#' #' @export
+#' minus_lp_grd <- function(parms, X, Z, t, wi, i, D, wji, dij, data){
+#'
+#'   -lp_grd(parms = parms, X = X, Z = Z,
+#'           t = {{ t }}, wi = {{ wi }}, i = {{ i }}, D = D, wji = {{ wji }},
+#'           dij = {{ dij }}, data = data)
+#'
+#' }
+#'
 
 # dlp_b(parms = c(B, b), X = xColumns, Z = zColumns, t = t, wi = wi,
 # i = cluster, D = D_theta, wji = wji, dij = dij, data = myData)
