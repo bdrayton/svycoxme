@@ -171,7 +171,7 @@ lp <- function(parms, X, t, dij, D, data, ...) {
 
   b <- parms[-seq_len(length.out = length(X))]
 
-  penalty = 0.5 * sum(diag(solve(D)*b))
+  penalty = 0.5 * sum(diag(solve(D))*b^2)
   #
   # penalty <- data %>%
   #   dplyr::distinct({{ cluster }}) %>%
@@ -328,7 +328,7 @@ dlp_b <- function(parms, X, cluster, t, dij, D, data, ...) {
   # isn't guaranteed to be what you expect after this, so best to just match on
   # name.
 
-  penalty <- data.frame(Zi = Z_colnames, penalty = 0.5 * (solve(D) %*% b[Z_colnames]))
+  penalty <- data.frame(Zi = Z_colnames, penalty = (solve(D) %*% b[Z_colnames]))
 
   sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ t }})
 
