@@ -1,5 +1,32 @@
 
 
+#' create a set of columns from cluster information
+#'
+#' @export
+#'
+
+add_Z <- function(data, cluster){
+
+  Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
+
+  Z_matrix <- model.matrix(Z_formula, data = data)
+
+  Z_names <- paste0("Z", seq(ncol(Z_matrix)))
+
+  colnames(Z_matrix) <- Z_names
+
+  data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
+
+  attr(data_with_Z, "Z_names") <- Z_names
+
+  data_with_Z
+
+}
+
+
+
+
+
 #' Wang 2019 likelihood differentiated twice with respect to the fixed effects, \eqn{\beta}.
 #'
 #' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
@@ -18,15 +45,9 @@
 
 BB <- function(parms, X, t, cluster, dij, data){
 
-  Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
+  data_with_Z <- add_Z(data = data, cluster = cluster)
 
-  Z_matrix <- model.matrix(Z_formula, data = data)
-
-  Z_names <- paste0("Z", seq(ncol(Z_matrix)))
-
-  colnames(Z_matrix) <- Z_names
-
-  data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
+  Z_names <- attr(data_with_Z, "Z_names")
 
   b <- parms[-seq_len(length.out = length(X))]
 
@@ -36,11 +57,15 @@ BB <- function(parms, X, t, cluster, dij, data){
 
   addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
 
-  termsX <- calcRiskSets(addedLP, X, "Xr")
+  termsXr <- calcRiskSets(addedLP, X, "Xr")
+
+  termsXs <- dplyr::select(termsXr, index, Xs = Xr, cumsum_Xs_A = cumsum_Xr_A)
 
   XCrossProducts <- calcCrossProducts(sortedIndexedData, X, X, "Xr", "Xs")
 
-  d6 <- dplyr::left_join(termsX, XCrossProducts, by = c("index", "Xr"))
+  d6Xr <- dplyr::left_join(termsXr, XCrossProducts, by = c("index", "Xr"))
+
+  d6 <- dplyr::left_join(d6Xr, termsXs, by = c("index", "Xs"))
 
   d7 <- d6 %>%
     dplyr::arrange(desc(index)) %>%
@@ -52,7 +77,7 @@ BB <- function(parms, X, t, cluster, dij, data){
 
   ll <- d7 %>%
     dplyr::mutate(
-      ll_parts = stat * ((cumsum_Xr_A^2)/(cumsum_A)^2 - cumsum_XrXs_A/cumsum_A)
+      ll_parts = stat * ((cumsum_Xr_A*cumsum_Xs_A)/(cumsum_A)^2 - cumsum_XrXs_A/cumsum_A)
     ) %>%
     dplyr::summarise(ll = sum(ll_parts), .groups = "drop")
 
@@ -75,15 +100,10 @@ BB <- function(parms, X, t, cluster, dij, data){
 #' @export
 
 bb <- function(parms, X, t, cluster, dij, data, theta){
-  Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
 
-  Z_matrix <- model.matrix(Z_formula, data = data)
+  data_with_Z <- add_Z(data = data, cluster = cluster)
 
-  Z_names <- paste0("Z", seq(ncol(Z_matrix)))
-
-  colnames(Z_matrix) <- Z_names
-
-  data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
+  Z_names <- attr(data_with_Z, "Z_names")
 
   b <- parms[-seq_len(length.out = length(X))]
 
@@ -97,9 +117,14 @@ bb <- function(parms, X, t, cluster, dij, data, theta){
 
   d4 <- calcRiskSets(addedLP, vars = Z_names, varCol = "Zr")
 
+  d4a <- dplyr::select(d4, index, Zs = Zr, cumsum_Zs_A = cumsum_Zr_A)
+
   d5 <- calcCrossProducts(sortedIndexedData, Z_names, Z_names, "Zr", "Zs")
 
-  d6 <- dplyr::left_join(d4, d5, by = c("index", "Zr"))
+  d6Zr <- dplyr::left_join(d4, d5, by = c("index", "Zr"))
+
+  d6 <- dplyr::left_join(d6Zr, d4a, by = c("index", "Zs"))
+
 
   d7 <- d6 %>%
     dplyr::arrange(desc(index)) %>%
@@ -111,7 +136,7 @@ bb <- function(parms, X, t, cluster, dij, data, theta){
 
   unpenalised <- d7 %>%
     dplyr::mutate(
-      ll_parts = stat * ((cumsum_Zr_A^2)/(cumsum_A)^2 - cumsum_ZrZs_A/cumsum_A)
+      ll_parts = stat * ((cumsum_Zr_A * cumsum_Zs_A)/(cumsum_A)^2 - cumsum_ZrZs_A/cumsum_A)
     ) %>%
     dplyr::summarise(ll_unpenalised = sum(ll_parts), .groups = "drop")
 
@@ -147,15 +172,9 @@ bb <- function(parms, X, t, cluster, dij, data, theta){
 
 Bb <- function(parms, X, t, cluster, dij, data){
 
-  Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
+  data_with_Z <- add_Z(data = data, cluster = cluster)
 
-  Z_matrix <- model.matrix(Z_formula, data = data)
-
-  Z_names <- paste0("Z", seq(ncol(Z_matrix)))
-
-  colnames(Z_matrix) <- Z_names
-
-  data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
+  Z_names <- attr(data_with_Z, "Z_names")
 
   b <- parms[-seq_len(length.out = length(X))]
 

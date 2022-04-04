@@ -232,10 +232,6 @@ by_hand_hess_21 %>%
 
 
 
-
-
-
-
 diag(fit_optim$hessian)[c(-1, -2, -3)] |> sum()
 
 sum(diag(penalised))
