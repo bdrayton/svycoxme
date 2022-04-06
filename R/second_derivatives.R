@@ -99,7 +99,7 @@ BB <- function(parms, X, t, cluster, dij, data){
 #'
 #' @export
 
-bb <- function(parms, X, t, cluster, dij, data, theta){
+bb <- function(parms, X, t, cluster, dij, data, theta, return_matrix = FALSE, ...){
 
   data_with_Z <- add_Z(data = data, cluster = cluster)
 
@@ -152,7 +152,15 @@ bb <- function(parms, X, t, cluster, dij, data, theta){
     dplyr::mutate(ll = ll_unpenalised - penalty) %>%
     dplyr::select(Zr, Zs, ll)
 
-  ll
+  if(!return_matrix) {
+    return(ll)
+  } else {
+
+    ll %>% tidyr::pivot_wider(names_from = "Zs", values_from = "ll") %>%
+      tibble::column_to_rownames("Zr") %>%
+      as.matrix()
+
+  }
 
 }
 

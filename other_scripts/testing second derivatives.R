@@ -2,7 +2,7 @@
 
 my_beta = c(1, -0.7, 0.5)
 my_theta = 0.2
-my_k = 5
+my_k = 10
 my_nk = 10
 
 my_X = c("X1", "X2", "X3")
@@ -17,7 +17,7 @@ BB(parms = my_params, X = my_X, t = t, cluster = "M", dij = stat,
    data = sample_data)
 
 bb(parms = my_params, X = my_X, t = t, cluster = "M", dij = stat,
-   data = sample_data, theta = my_theta)
+   data = sample_data, theta = my_theta, return_matrix = TRUE)
 
 Bb(parms = my_params, X = my_X, t = t, cluster = "M", dij = stat,
    data = sample_data)
@@ -26,6 +26,8 @@ my_hessian <- ppl_hessian(parms = my_params, X = my_X, t = t,
                           cluster = "M", dij = stat, data = sample_data,
                           theta = my_theta)
 
+est_theta(parms = my_params, X = my_X, t = t, cluster = "M", dij = stat,
+          data = sample_data, theta = my_theta)
 
 fit <- survival::coxph(survival::Surv(t, stat) ~ X1 + X2 + X3, data = sample_data)
 
@@ -41,6 +43,7 @@ fit_optim <- optim(par = start_parameters,
                    cluster = "M",
                    dij = stat,
                    D = my_theta * diag(length(b)),
+                   theta = my_theta,
                    data = sample_data,
                    method = "BFGS",
                    control = list(fnscale = -1),
@@ -52,7 +55,11 @@ my_hessian <- ppl_hessian(parms = fit_optim$par, X = my_X, t = t,
                           cluster = "M", dij = stat, data = sample_data,
                           theta = my_theta)
 
-my_hessian - fit_optim$hessian
+max(my_hessian - fit_optim$hessian)
+
+
+t(fit_optim$par[4:8]) %*% fit_optim$par[4:8] + sum(diag(solve(my_hessian[4:8, 4:8])))
+
 
 BB(parms = fit_optim$par, X = my_X, t = t, cluster = "M", dij = stat,
    data = sample_data)
