@@ -26,14 +26,15 @@ my_hessian <- ppl_hessian(parms = my_params, X = my_X, t = t,
                           cluster = "M", dij = stat, data = sample_data,
                           theta = my_theta)
 
-est_theta(parms = my_params, X = my_X, t = t, cluster = "M", dij = stat,
-          data = sample_data, theta = my_theta)
-
 fit <- survival::coxph(survival::Surv(t, stat) ~ X1 + X2 + X3, data = sample_data)
 
 start_parameters = c(coef(fit), rep(0, length(b)))
 
 names(start_parameters) <- c(my_X, paste0("Z", seq_len(length(b))))
+
+lp_grd(start_parameters, X = my_X, cluster = "M", t = t, dij = stat, theta = my_theta, data = sample_data )
+
+dlp_beta(start_parameters, X = my_X, cluster = "M", t = t, dij = stat, data = sample_data)
 
 fit_optim <- optim(par = start_parameters,
                    fn = lp,
@@ -42,7 +43,6 @@ fit_optim <- optim(par = start_parameters,
                    t = t,
                    cluster = "M",
                    dij = stat,
-                   D = my_theta * diag(length(b)),
                    theta = my_theta,
                    data = sample_data,
                    method = "BFGS",

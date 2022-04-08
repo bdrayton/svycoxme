@@ -13,20 +13,30 @@ b <- attr(sample_data, "random_effects")
 
 my_params <- c(my_beta[seq_along(my_X)], b)
 
-my_hessian <- ppl_hessian(parms = my_params, X = my_X, t = t,
-                          cluster = "M", dij = stat, data = sample_data,
-                          theta = my_theta)
+# my_hessian <- ppl_hessian(parms = my_params, X = my_X, t = t,
+#                           cluster = "M", dij = stat, data = sample_data,
+#                           theta = my_theta)
 
 my_K_ppl <- bb(parms = my_params, X = my_X, t = t,
                cluster = "M", dij = stat, data = sample_data,
                theta = my_theta, return_matrix = TRUE)
 
-thetas_to_try <- seq(from = 3, to = 100, by = 1)
+est_theta(b, my_K_ppl)
+
+thetas_to_try <- seq(from = 2, to = 10, by = 0.01)
 
 ll <- sapply(thetas_to_try, est_theta2, b = b, K_ppl = my_K_ppl)
 
 plot(thetas_to_try, ll)
 
+optim(par = 10, fn = est_theta2, b = b, K_ppl = my_K_ppl,
+      method = "Brent", lower = 0.1, upper = 50)
+
+inv_D = solve(D)
+
+inv_D*inv_D
+
+1/theta
 
 # when D I*theta, then,
 
@@ -109,7 +119,12 @@ df %>%
 
 
 
+sum(diag(-solve(my_K_ppl) %*% inv_D %*% inv_D))
 
+-sum(diag(inv_D %*% inv_D) * diag(solve(my_K_ppl)))
+
+
+est_theta(b, my_K_ppl)
 
 
 

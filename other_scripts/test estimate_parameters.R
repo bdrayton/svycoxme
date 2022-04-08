@@ -16,11 +16,12 @@ start_parameters = c(coef(fit), rep(0, nb))
 
 names(start_parameters) <- c(my_X, paste0("Z", seq_len(nb)))
 
+# debugonce(estimate_parameters)
 
 current_estimates <- estimate_parameters(start_parms = start_parameters, theta = 1, X = my_X, t = t,
                                          cluster = "M", dij = stat, data = sample_data)
 
-max_iter = 10
+max_iter = 100
 convergence_threshold = 0.000001
 
 estimate_history <- list(current_estimates)
@@ -47,11 +48,21 @@ for (i in 1:max_iter) {
 
 }
 
-tail(estimate_history, 1)
+algo_fit <- tail(estimate_history, 1)
 
 coxme_fit <- coxme::coxme(survival::Surv(t, stat) ~ X1 + X2 + X3 + (1 | M), data = sample_data)
 
-coxme::ranef(coxme_fit)
+data.frame(
+  true_vals = c(my_theta, my_beta, attr(sample_data, "random_effects")),
+  coxme = c(coxme::VarCorr(coxme_fit)$M,
+    coxme::fixef(coxme_fit),
+    coxme::ranef(coxme_fit)$M),
+  my_ests = unlist(algo_fit))
+
+
+
+
+
 
 
 

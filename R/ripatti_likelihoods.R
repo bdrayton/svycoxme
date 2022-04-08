@@ -163,14 +163,13 @@ calcRiskSets <- function(data, vars = NULL, varCol = NULL, A = A, index = index)
 lp <- function(parms, X, t, dij, theta, cluster, data, ...) {
 
   data_with_Z <- add_Z(data, cluster)
+  sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ t }})
 
   b <- parms[-seq_len(length.out = length(X))]
 
   D = theta * diag(length(b))
 
-  penalty = 0.5 * sum(diag(solve(D))*b^2)
-
-  sortedIndexedData <- sortAndIndex(data_with_Z, {{ t }})
+  penalty = c(0.5 * t(b)%*%solve(D)%*%b)
 
   terms1 <- calcLinearPredictor(sortedIndexedData, X = X, Z = attr(data_with_Z, "Z_names"), parms = parms)
 
@@ -259,13 +258,16 @@ calcCrossProducts <- function(data, f1, f2, n1, n2) {
 
 dlp_beta <- function(parms, X, cluster, t, dij, data, ...) {
 
-  Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
 
-  Z_matrix <- model.matrix(Z_formula, data = data)
+#   Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
+#
+#   Z_matrix <- model.matrix(Z_formula, data = data)
+#
+#   colnames(Z_matrix) <- paste0("Z", seq(ncol(Z_matrix)))
 
-  colnames(Z_matrix) <- paste0("Z", seq(ncol(Z_matrix)))
+  data_with_Z <- add_Z(data, cluster)
 
-  data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
+  Z_names <- attr(data_with_Z, "Z_names")
 
   b <- parms[-seq_len(length.out = length(X))]
 
@@ -273,7 +275,7 @@ dlp_beta <- function(parms, X, cluster, t, dij, data, ...) {
 
   sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ t }})
 
-  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = colnames(Z_matrix), parms = parms)
+  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
 
   addedCumsums <- calcRiskSets(addedLP, X, "Xr")
 
@@ -298,15 +300,21 @@ dlp_beta <- function(parms, X, cluster, t, dij, data, ...) {
 
 dlp_b <- function(parms, X, cluster, t, dij, D, data, ...) {
 
-  Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
+  # Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
+  #
+  # Z_matrix <- model.matrix(Z_formula, data = data)
+  #
+  # Z_colnames <- paste0("Z", seq(ncol(Z_matrix)))
+  #
+  # colnames(Z_matrix) <- Z_colnames
+  #
+  # data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
 
-  Z_matrix <- model.matrix(Z_formula, data = data)
+  data_with_Z <- add_Z(data, cluster)
 
-  Z_colnames <- paste0("Z", seq(ncol(Z_matrix)))
+  Z_names <- attr(data_with_Z, "Z_names")
 
-  colnames(Z_matrix) <- Z_colnames
-
-  data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
+  sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ t }})
 
   b <- parms[-seq_len(length.out = length(X))]
 
@@ -316,13 +324,11 @@ dlp_b <- function(parms, X, cluster, t, dij, D, data, ...) {
   # isn't guaranteed to be what you expect after this, so best to just match on
   # name.
 
-  penalty <- data.frame(Zi = Z_colnames, penalty = (solve(D) %*% b[Z_colnames]))
+  penalty <- data.frame(Zi = Z_names, penalty = (solve(D) %*% b[Z_names]))
 
-  sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ t }})
+  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
 
-  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_colnames, parms = parms)
-
-  addedCumSums <- calcRiskSets(addedLP, vars = Z_colnames, varCol = "Zi")
+  addedCumSums <- calcRiskSets(addedLP, vars = Z_names, varCol = "Zi")
 
   ll_unpenalized <- addedCumSums %>%
     dplyr::mutate(li =  {{ dij }} * (value - cumsum_Zi_A / cumsum_A)) %>%
@@ -341,7 +347,11 @@ dlp_b <- function(parms, X, cluster, t, dij, D, data, ...) {
 #'
 #' @export
 
-lp_grd <- function(parms, X, cluster, t, dij, D, data, ...) {
+lp_grd <- function(parms, X, cluster, t, dij, theta, data, ...) {
+
+  b <- parms[-seq_len(length.out = length(X))]
+
+  D <- theta * diag(length(b))
 
   l4 <- dlp_beta(parms = parms, X = X, cluster = cluster,
                  t = {{ t }}, dij = {{ dij }}, data = data) %>%
@@ -419,13 +429,19 @@ est_theta2 <- function(par, b, K_ppl){
 
   D_inv = solve(D)
 
-  term1 <- -0.5 * sum(diag(D_inv %*% I))
+  # term1 <- -0.5 * sum(diag(D_inv %*% I))
+  #
+  # term2 <- -0.5 * sum(diag(solve(K_ppl) %*% D_inv %*% I %*% D_inv))
+  #
+  # term3 <- 0.5 * t(b) %*% D_inv %*% I %*% D_inv %*% b
+  #
+  # term1 + term2 + term3
 
-  term2 <- -0.5 * sum(diag(solve(K_ppl) %*% D_inv %*% I %*% D_inv))
-
-  term3 <- 0.5 * t(b) %*% D_inv %*% I %*% D_inv %*% b
-
-  term1 + term2 + term3
+  c(-0.5 * (
+    sum(diag(D_inv))
+    + sum(diag(-solve(K_ppl) %*% D_inv %*% D_inv))
+    - t(b) %*% D_inv %*% D_inv %*% b
+  ))
 
 }
 
@@ -527,8 +543,9 @@ estimate_parameters <- function(start_parms, theta, X, t, cluster, dij, data){
   K_ppl <- bb(parms = fit_optim$par, X = X, t = {{ t }}, cluster = cluster,
               dij = {{ dij }}, data = data, theta = theta, return_matrix = TRUE)
 
-  new_theta = est_theta(b = b_hat, K_ppl = K_ppl)
+  # new_theta = est_theta2(par = theta, b = b_hat, K_ppl = K_ppl)
 
+  new_theta = est_theta(b_hat, K_ppl)
 
   list(new_theta = new_theta,
        new_parms = fit_optim$par)
