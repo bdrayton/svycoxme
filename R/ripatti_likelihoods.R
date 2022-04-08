@@ -11,6 +11,7 @@
 #'
 #' @export
 #'
+#' @importFrom rlang :=
 
 sortAndIndex <- function(data, sort_vars, index = "index") {
   data %>%
@@ -365,15 +366,7 @@ lp_grd <- function(parms, X, cluster, t, dij, theta, data, ...) {
 
 }
 
-#' @export
-#'
-minus_lp_grd <- function(parms, X, Z, t, wi, i, D, wji, dij, data){
 
-  -lp_grd(parms = parms, X = X, Z = Z,
-          t = {{ t }}, wi = {{ wi }}, i = {{ i }}, D = D, wji = {{ wji }},
-          dij = {{ dij }}, data = data)
-
-}
 
 
 #' Shared frailty theta
@@ -387,22 +380,7 @@ minus_lp_grd <- function(parms, X, Z, t, wi, i, D, wji, dij, data){
 
 est_theta <- function(b, K_ppl){
 
-  c((b %*% b + sum(diag(solve(K_ppl)))) / length(b))
-
-  # bb_est <- bb(parms = parms, X = X, t = {{ t }}, cluster = cluster,
-  #              dij = {{ dij}}, data = data, theta = theta)
-  #
-  # bb_est_matrix <- tidyr::pivot_wider(bb_est, names_from = "Zs", values_from = ll) %>%
-  #   tibble::column_to_rownames(var = "Zr") %>%
-  #   as.matrix()
-  #
-  # b <- parms[-seq_len(length.out = length(X))]
-  #
-  # b_transpose_b <- t(b)%*%b
-  #
-  # theta <- (b_transpose_b + sum(diag(solve(bb_est_matrix)))) / length(b)
-  #
-  # c(max(0, theta))
+  c((sum(b*b) + sum(diag(solve(K_ppl)))) / length(b))
 
 }
 
@@ -412,8 +390,7 @@ est_theta <- function(b, K_ppl){
 #' estimating equation for \theta has a closed form, implemented here.
 #'
 #' In the code, the identity matrix is the derivative of D, but for more
-#' complex frailty models, D and it's derivative will be more complex (and this
-#' code won't work correctly).
+#' complex frailty models, D and it's derivative will be more complex (and this code won't work correctly).
 #'
 #'
 #'
@@ -443,65 +420,35 @@ est_theta2 <- function(par, b, K_ppl){
     - t(b) %*% D_inv %*% D_inv %*% b
   ))
 
+
 }
 
 
+#' @export
 
-#' #' estimating equations for \theta
-#' #'
-#'
-#' #' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
-#' #' @param X character vector containing names of X columns in data.
-#' #' @param t column in data with time of failure/censoring data.
-#' #' @param i column in data that identifies clusters.
-#' #' @param dij column in data indicating if observation was censored or a failure.
-#' #' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
-#' #' @param data tibble with all these columns
-#' #'
-#' #' @export
-#'
-#' #
-#' # lp_theta <- function(parms, X, t, dij, D, data, ...) {
-#' #
-#' #   Z_matrix <- model.matrix( ~ as.factor(M) - 1, data = data)
-#' #
-#' #   colnames(Z_matrix) <- paste0("Z", seq(ncol(Z_matrix)))
-#' #
-#' #   data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
-#' #
-#' #
-#' #
-#' #
-#' #
-#' #   penalty = 0.5 * sum(diag(solve(D))*b^2)
-#' #   #
-#' #   # penalty <- data %>%
-#' #   #   dplyr::distinct({{ cluster }}) %>%
-#' #   #   dplyr::mutate(
-#' #   #     theta_inverse = diag(solve(D)),
-#' #   #     penalty = dplyr::all_of(b)^2 * theta_inverse
-#' #   #   ) %>%
-#' #   #   dplyr::summarise(penalty = 0.5 * sum(penalty)) %>%
-#' #   #   dplyr::pull(penalty)
-#' #
-#' #   sortedIndexedData <- sortAndIndex(data_with_Z, {{ t }})
-#' #
-#' #   terms1 <- calcLinearPredictor(sortedIndexedData, X = X, Z = colnames(Z_matrix), parms = parms)
-#' #
-#' #   terms2 <- calcRiskSets(terms1)
-#' #
-#' #   ll <- terms2 %>%
-#' #     dplyr::mutate(li =  {{ dij }} * (<- - log(cumsum_A))) %>%
-#' #     dplyr::summarise(ll = sum(li)) %>%
-#' #     dplyr::pull(ll)
-#' #
-#' #   ppl <- ll - penalty
-#' #
-#' #   attr(ppl, "penalty") <- penalty
-#' #
-#' #   ppl
-#' #
-#' # }
+
+
+est_theta3 <- function(par, parms, X, t, cluster, dij, data, b){
+
+  theta = par
+
+  I = diag(length(b))
+
+  D = theta * I
+
+  D_inv = solve(D)
+
+  q = length(b)
+
+  K_ppl <- bb(parms = my_params, X = my_X, t = t,
+              cluster = "M", dij = stat, data = sample_data,
+              theta = theta, return_matrix = TRUE)
+
+
+  c((sum(diag(solve(K_ppl))) + t(b)%*%b)/q - theta)
+
+
+}
 
 
 

@@ -35,8 +35,9 @@ my_u <- lp_grd(parms = coxme_est_parms,
                theta = coxme_est_theta,
                data = ds)
 
-cbind(my_u, fit$u)
+# the gradient in coxme have a mixed up order
 
+cbind(my_u[order(my_u)], fit$u[order(fit$u)])
 
 
 

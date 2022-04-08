@@ -1,4 +1,7 @@
 
+
+library(ggplot2)
+
 my_beta = c(1, -0.7, 0.5)
 my_theta = 1
 my_k = 10
@@ -18,11 +21,11 @@ names(start_parameters) <- c(my_X, paste0("Z", seq_len(nb)))
 
 # debugonce(estimate_parameters)
 
-current_estimates <- estimate_parameters(start_parms = start_parameters, theta = 1, X = my_X, t = t,
+current_estimates <- estimate_parameters(start_parms = start_parameters, theta = 1, X = my_X, t = "t",
                                          cluster = "M", dij = stat, data = sample_data)
 
 max_iter = 100
-convergence_threshold = 0.000001
+convergence_threshold = 0.0001
 
 estimate_history <- list(current_estimates)
 
@@ -31,7 +34,7 @@ for (i in 1:max_iter) {
   current_estimates <- estimate_parameters(start_parms = current_estimates$new_parms,
                                            theta = current_estimates$new_theta,
                                            X = my_X,
-                                           t = t,
+                                           t = "t",
                                            cluster = "M",
                                            dij = stat,
                                            data = sample_data)
@@ -62,10 +65,6 @@ data.frame(
 
 
 
-
-
-
-
 # get theta estimates
 
 theta_ests <- sapply(estimate_history, "[[", "new_theta")
@@ -81,7 +80,11 @@ parm_ests %>%
   tibble::rownames_to_column() %>%
   tidyr::pivot_longer(cols = dplyr::starts_with("V")) %>%
   dplyr::filter(grepl("X", rowname)) %>%
-  ggplot(aes(name, value)) + geom_point() + facet_grid(rows = vars(rowname), scales = "free")
+  dplyr::mutate(iteration = as.numeric(gsub("V", "", name))) %>%
+  ggplot(aes(iteration, value)) +
+    geom_line() +
+    facet_grid(rows = vars(rowname),
+               scales = "free")
 
 
 

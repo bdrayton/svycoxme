@@ -4,7 +4,7 @@
 \alias{lp}
 \title{penalised partial likelihood in Ripatti 2000}
 \usage{
-lp(parms, X, t, dij, D, data, ...)
+lp(parms, X, t, dij, theta, cluster, data, ...)
 }
 \arguments{
 \item{parms}{numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.}
@@ -15,13 +15,11 @@ lp(parms, X, t, dij, D, data, ...)
 
 \item{dij}{column in data indicating if observation was censored or a failure.}
 
-\item{D}{diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.}
-
 \item{data}{tibble with all these columns}
 
-\item{Z}{character vector containing names of Z columns in data.}
-
 \item{i}{column in data that identifies clusters.}
+
+\item{D}{diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.}
 }
 \description{
 returns the PPL proposed by Ripatti and Palmgren

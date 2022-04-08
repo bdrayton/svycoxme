@@ -23,14 +23,24 @@ my_K_ppl <- bb(parms = my_params, X = my_X, t = t,
 
 est_theta(b, my_K_ppl)
 
-thetas_to_try <- seq(from = 2, to = 10, by = 0.01)
+thetas_to_try <- seq(from = 0.3, to = 10, by = 0.01)
 
-ll <- sapply(thetas_to_try, est_theta2, b = b, K_ppl = my_K_ppl)
+ll <- sapply(thetas_to_try, est_theta3, b = b, K_ppl = my_K_ppl)
 
-plot(thetas_to_try, ll)
+plot(thetas_to_try, ll, type = "l")
 
 optim(par = 10, fn = est_theta2, b = b, K_ppl = my_K_ppl,
       method = "Brent", lower = 0.1, upper = 50)
+
+optim(par = 10, fn = est_theta3, b = b, K_ppl = my_K_ppl,
+      method = "Brent", lower = 0.1, upper = 50)
+
+est_theta2(1, b = b, K_ppl = my_K_ppl)
+
+est_theta3(1, b = b, K_ppl = my_K_ppl)
+
+
+
 
 inv_D = solve(D)
 
