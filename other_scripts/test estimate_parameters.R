@@ -1,11 +1,12 @@
 
 
-library(ggplot2)
-
 my_beta = c(1, -0.7, 0.5)
 my_theta = 1
-my_k = 10
+my_k = 50
 my_nk = 10
+
+max_iter = 100
+convergence_threshold = 0.0001
 
 my_X = c("X1", "X2", "X3")
 
@@ -19,25 +20,25 @@ start_parameters = c(coef(fit), rep(0, nb))
 
 names(start_parameters) <- c(my_X, paste0("Z", seq_len(nb)))
 
-# debugonce(estimate_parameters)
-
-current_estimates <- estimate_parameters(start_parms = start_parameters, theta = 1, X = my_X, t = "t",
+current_estimates <- estimate_parameters(start_parms = start_parameters, theta = 4, X = my_X, t = "t",
                                          cluster = "M", dij = stat, data = sample_data)
-
-max_iter = 100
-convergence_threshold = 0.0001
 
 estimate_history <- list(current_estimates)
 
 for (i in 1:max_iter) {
 
-  current_estimates <- estimate_parameters(start_parms = current_estimates$new_parms,
+  current_estimates <- try(estimate_parameters(start_parms = current_estimates$new_parms,
                                            theta = current_estimates$new_theta,
                                            X = my_X,
                                            t = "t",
                                            cluster = "M",
                                            dij = stat,
-                                           data = sample_data)
+                                           data = sample_data))
+
+  if("try-error" %in% class(current_estimates)) {
+    cat("fit failed on iteration", i)
+    break
+  }
 
   estimate_history[[i+1]] <- current_estimates
 
@@ -50,6 +51,14 @@ for (i in 1:max_iter) {
   }
 
 }
+
+
+# get theta estimates
+
+theta_ests <- sapply(estimate_history, "[[", "new_theta")
+
+plot(theta_ests)
+
 
 algo_fit <- tail(estimate_history, 1)
 

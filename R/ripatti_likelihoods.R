@@ -368,6 +368,17 @@ lp_grd <- function(parms, X, cluster, t, dij, theta, data, ...) {
 
 
 
+#' inner product
+#'
+#' fast version of a %*% t(b) when a and b are diagonal matrices of the same size is:
+#' sum(a*a).
+#'
+#'
+
+inner <- function(a, b = a) {
+  sum(a * b)
+}
+
 
 #' Shared frailty theta
 #'
@@ -380,7 +391,7 @@ lp_grd <- function(parms, X, cluster, t, dij, theta, data, ...) {
 
 est_theta <- function(b, K_ppl){
 
-  c((sum(b*b) + sum(diag(solve(K_ppl)))) / length(b))
+  c((inner(b) + sum(diag(solve(K_ppl)))) / length(b))
 
 }
 
