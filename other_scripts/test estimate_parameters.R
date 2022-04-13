@@ -10,6 +10,8 @@ convergence_threshold = 0.0001
 
 my_X = c("X1", "X2", "X3")
 
+
+
 sample_data <- one_dataset(control = list(k = my_k, nk = my_nk, beta = my_beta, theta = my_theta))
 
 fit <- survival::coxph(survival::Surv(t, stat) ~ X1 + X2 + X3, data = sample_data)
@@ -59,10 +61,14 @@ theta_ests <- sapply(estimate_history, "[[", "new_theta")
 
 plot(theta_ests)
 
+coxme_fit <- coxme::coxme(survival::Surv(t, stat) ~ X1 + X2 + X3 + (1 | M), data = sample_data)
+
+coxme::VarCorr(coxme_fit)
+
+
 
 algo_fit <- tail(estimate_history, 1)
 
-coxme_fit <- coxme::coxme(survival::Surv(t, stat) ~ X1 + X2 + X3 + (1 | M), data = sample_data)
 
 data.frame(
   true_vals = c(my_theta, my_beta, attr(sample_data, "random_effects")),

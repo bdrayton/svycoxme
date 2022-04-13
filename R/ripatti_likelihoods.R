@@ -503,7 +503,8 @@ estimate_parameters <- function(start_parms, theta, X, t, cluster, dij, data){
 
   # new_theta = est_theta2(par = theta, b = b_hat, K_ppl = K_ppl)
 
-  new_theta = est_theta(b_hat, K_ppl)
+  # new_theta = est_theta(b_hat, K_ppl)
+  new_theta <- var(b_hat)
 
   list(new_theta = new_theta,
        new_parms = fit_optim$par)
