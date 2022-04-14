@@ -2,13 +2,29 @@
 
 
 
+my_beta = c(1, -0.7, 0.5)
+my_theta = 1
+my_k = 50
+my_nk = 10
 
+max_iter = 100
+convergence_threshold = 0.0001
+
+my_X = c("X1", "X2", "X3")
+
+
+
+sample_data <- one_dataset(control = list(k = my_k, nk = my_nk, beta = my_beta, theta = my_theta))
 
 library(coxme)
 
+debugonce(coxme)
+
 coxme_fit <- coxme::coxme(survival::Surv(t, stat) ~ X1 + X2 + strata(X3) + (1 | M), data = sample_data)
 
-coxme
+
+
+
 
 formula <- survival::Surv(t, stat) ~ X1 + X2 + strata(X3) + (1 | M)
 
