@@ -2,7 +2,7 @@
 
 my_beta = c(1, -0.7, 0.5)
 my_theta = 1
-my_k = 50
+my_k = 10
 my_nk = 10
 
 ds <- one_dataset(list(k = my_k, nk = my_nk, beta = my_beta, theta = my_theta))
@@ -13,7 +13,9 @@ coxme_est_theta <- coxme::VarCorr(fit)$M
 
 coxme_est_parms <- c(coxme::fixef(fit), coxme::ranef(fit)$M)
 
-names(coxme_est_parms) <- paste0(rep(c("X", "Z"), c(3, my_k)), c(1:3, seq_len(my_k)))
+parm_names <- paste0(rep(c("X", "Z"), c(3, my_k)), c(1:3, seq_len(my_k)))
+
+names(coxme_est_parms) <- parm_names
 
 my_loglik <- lp(parms = coxme_est_parms,
    X = c("X1", "X2", "X3"),
@@ -37,12 +39,80 @@ my_u <- lp_grd(parms = coxme_est_parms,
 
 # the gradient in coxme have a mixed up order
 
-cbind(my_u[order(my_u)], fit$u[order(fit$u)])
+
+# find the parameters that gradients refer to. lp_grd gives pretty much the
+# same gradients as coxme, but i know the parametres. this code gives the parameter
+# order for the coxme gradients, which I'm hoping is inhereted by the coxme hessian.
+
+ordered_coxme_u <-
+   tibble::tibble(coxme_u = fit$u,
+                  coxme_u_order = seq_along(coxme_u)) %>%
+   dplyr::arrange(coxme_u)
 
 
+ordered_my_u <-
+   tibble::tibble(parm = parm_names,
+                  my_u = my_u) %>%
+   dplyr::arrange(my_u)
+
+# it looks like the only reordering is to put the fixed effects after the random effects.
+dplyr::bind_cols(
+   ordered_coxme_u,
+   ordered_my_u) %>%
+   dplyr::arrange( coxme_u_order) %>%
+   dplyr::pull(parm)
+
+my_hessian <- svycoxme::ppl_hessian(parms = coxme_est_parms,
+                                    X = c("X1", "X2", "X3"),
+                                    cluster = "M",
+                                    t = t,
+                                    dij = stat,
+                                    theta = coxme_est_theta,
+                                    data = ds)
+
+# reorder my hessian to be the same as coxme (at least what I think coxme is)
+
+reordered_names <- colnames(my_hessian)[c(seq_len(my_k) + 3, 1:3)]
+
+reord_hessian <- my_hessian[reordered_names, reordered_names]
+
+gchol_reord_hessian <- gchol(reord_hessian)
+
+gchol_my_hessian <- gchol(my_hessian)
+
+# can get the original matrix back, but not perfectly. introduces errors of magnitude less than e-14
+
+L <- as.matrix(gchol_reord_hessian)
+
+D <- diag(gchol_reord_hessian)
+
+(L %*% diag(D) %*% t(L) - reord_hessian) <(.Machine$double.neg.eps*100)
 
 
+# Is fit_coxme$hmat the same as my_hessian after the appropriate transformations and reordering?
 
+L <- as.matrix(fit_coxme$hmat)
+
+D <- diag(fit_coxme$hmat)
+
+back_trans_hmat <- L %*% diag(D) %*% t(L)
+
+back_trans_hmat - (-1 * reord_hessian)
+
+# for the fixed effects, estimates are of the same magnitude, but not the same.
+vcov(fit_coxme)
+solve(-my_hessian)[1:3, 1:3]
+
+# looking at the variances and ignoring non-diagonal terms, they are not the same.
+cbind(
+   myvar = diag(solve(-reord_hessian)),
+   coxmevar = diag(fit_coxme$variance))
+
+# solve(hmat) == coxme$variance
+# More precisely, the inverse of coxme$hmat differs from coxme$variance by less
+# than machine error.
+hmat_inv <- solve(fit_coxme$hmat, full = TRUE)
+all.equal(fit_coxme$variance, hmat_inv)
 
 
 

@@ -451,7 +451,7 @@ est_theta3 <- function(par, parms, X, t, cluster, dij, data, b){
 
   q = length(b)
 
-  K_ppl <- bb(parms = my_params, X = my_X, t = t,
+  K_ppl <- bb(parms = my_params, X = X, t = t,
               cluster = "M", dij = stat, data = sample_data,
               theta = theta, return_matrix = TRUE)
 
@@ -496,15 +496,15 @@ estimate_parameters <- function(start_parms, theta, X, t, cluster, dij, data){
 
   # estimate theta for given beta and b
 
-  b_hat <- fit_optim$par[-seq_along(my_X)]
+  b_hat <- fit_optim$par[-seq_along(X)]
 
   K_ppl <- bb(parms = fit_optim$par, X = X, t = {{ t }}, cluster = cluster,
               dij = {{ dij }}, data = data, theta = theta, return_matrix = TRUE)
 
   # new_theta = est_theta2(par = theta, b = b_hat, K_ppl = K_ppl)
 
-  # new_theta = est_theta(b_hat, K_ppl)
-  new_theta <- var(b_hat)
+  new_theta = est_theta(b_hat, K_ppl)
+  # new_theta <- var(b_hat)
 
   list(new_theta = new_theta,
        new_parms = fit_optim$par)
@@ -513,7 +513,73 @@ estimate_parameters <- function(start_parms, theta, X, t, cluster, dij, data){
 }
 
 
+#' loops estimate_parameters and est_theta until convergence or max iterations
+#' is reached.
+#'
+#' @export
 
+estimate_parameters_loop <- function(beta,
+                                     theta,
+                                     k,
+                                     nk,
+                                     cluster = "M",
+                                     max_iter = 100,
+                                     convergence_threshold = 0.00001,
+                                     start_theta = 4,
+                                     X = c("X1", "X2", "X3")){
+
+  sample_data <- one_dataset(control = list(k = k, nk = nk, beta = beta, theta = theta))
+
+  fit <- survival::coxph(survival::Surv(t, stat) ~ X1 + X2 + X3, data = sample_data)
+
+  nb <- dplyr::n_distinct(sample_data[, cluster, drop = TRUE])
+
+  start_parameters = c(coef(fit), rep(0, nb))
+
+  names(start_parameters) <- c(X, paste0("Z", seq_len(nb)))
+
+  current_estimates <- estimate_parameters(start_parms = start_parameters, theta = start_theta, X = X, t = "t",
+                                           cluster = cluster, dij = stat, data = sample_data)
+
+  estimate_history <- list(current_estimates)
+
+  for (i in 1:max_iter) {
+
+    current_estimates <- try(estimate_parameters(start_parms = current_estimates$new_parms,
+                                                 theta = current_estimates$new_theta,
+                                                 X = X,
+                                                 t = "t",
+                                                 cluster = cluster,
+                                                 dij = stat,
+                                                 data = sample_data))
+
+    if("try-error" %in% class(current_estimates)) {
+      converged = FALSE
+      cat("fit failed on iteration", i, "\n")
+      break
+    }
+
+    estimate_history[[i+1]] <- current_estimates
+
+    biggest_diff = max(abs(c(estimate_history[[i]]$new_theta - estimate_history[[i+1]]$new_theta,
+                             estimate_history[[i]]$new_parms - estimate_history[[i+1]]$new_parms)), na.rm = TRUE)
+
+    if(biggest_diff <= convergence_threshold){
+      converged = TRUE
+      cat("converged in", i, "iterations", "\n")
+      break
+    }
+
+  }
+
+  if(!exists("converged")){converged = FALSE}
+
+  list(
+    estimate_history = estimate_history,
+    converged = converged,
+    sample_data = sample_data)
+
+}
 
 
 

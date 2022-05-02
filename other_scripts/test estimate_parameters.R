@@ -6,7 +6,7 @@ my_k = 50
 my_nk = 10
 
 max_iter = 100
-convergence_threshold = 0.0001
+convergence_threshold = 0.00001 # same as coxme
 
 my_X = c("X1", "X2", "X3")
 
@@ -26,7 +26,7 @@ current_estimates <- estimate_parameters(start_parms = start_parameters, theta =
                                          cluster = "M", dij = stat, data = sample_data)
 
 estimate_history <- list(current_estimates)
-
+start_time <- Sys.time()
 for (i in 1:max_iter) {
 
   current_estimates <- try(estimate_parameters(start_parms = current_estimates$new_parms,
@@ -38,7 +38,7 @@ for (i in 1:max_iter) {
                                            data = sample_data))
 
   if("try-error" %in% class(current_estimates)) {
-    cat("fit failed on iteration", i)
+    cat("fit failed on iteration", i, "\n")
     break
   }
 
@@ -48,12 +48,14 @@ for (i in 1:max_iter) {
             estimate_history[[i]]$new_parms - estimate_history[[i+1]]$new_parms)), na.rm = TRUE)
 
   if(biggest_diff <= convergence_threshold){
-    cat("converged in", i, "iterations")
+    cat("converged in", i, "iterations", "\n")
     break
   }
 
 }
+end_time <- Sys.time()
 
+end_time - start_time
 
 # get theta estimates
 
@@ -63,9 +65,7 @@ plot(theta_ests)
 
 coxme_fit <- coxme::coxme(survival::Surv(t, stat) ~ X1 + X2 + X3 + (1 | M), data = sample_data)
 
-coxme::VarCorr(coxme_fit)
-
-
+coxme::VarCorr(coxme_fit)$M
 
 algo_fit <- tail(estimate_history, 1)
 
@@ -101,13 +101,18 @@ parm_ests %>%
     facet_grid(rows = vars(rowname),
                scales = "free")
 
+r1 <- estimate_parameters_loop(beta = c(1, -0.7, 0.5),
+                         theta = 1,
+                         k = 50,
+                         nk = 10,
+                         cluster = "M",
+                         max_iter = 100,
+                         convergence_threshold = 0.00001,
+                         start_theta = 4,
+                         X = c("X1", "X2", "X3"))
 
+theta_history <- sapply(r1$estimate_history, "[[", "new_theta")
 
-
-
-
-
-
-
+plot(theta_history)
 
 
