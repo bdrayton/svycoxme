@@ -503,8 +503,12 @@ estimate_parameters <- function(start_parms, theta, X, t, cluster, dij, data){
 
   # new_theta = est_theta2(par = theta, b = b_hat, K_ppl = K_ppl)
 
-  new_theta = est_theta(b_hat, K_ppl)
+  # new_theta = est_theta(b_hat, K_ppl)
   # new_theta <- var(b_hat)
+
+  new_theta = optim(par = theta, fn = pl_theta, b = b_hat, K_ppl = K_ppl, method = "Brent", lower = 0, upper = 100,
+                    control = list(fnscale = -1))$par
+
 
   list(new_theta = new_theta,
        new_parms = fit_optim$par)
@@ -580,6 +584,26 @@ estimate_parameters_loop <- function(beta,
     sample_data = sample_data)
 
 }
+
+
+
+#' profile likelihood for \theta
+#'
+#' Only for shared frailty models.
+#'
+#' @export
+#'
+
+pl_theta <- function(theta, b, K_ppl){
+
+  D <- theta * diag(length(b))
+
+  (-1/2) * ( log(det(D)) + log(det(K_ppl)) + t(b) %*% solve(D) %*% b )
+
+
+}
+
+
 
 
 
