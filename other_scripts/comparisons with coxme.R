@@ -78,7 +78,12 @@ reordered_names <- colnames(my_hessian)[c(seq_len(my_k) + 3, 1:3)]
 
 reord_hessian <- my_hessian[reordered_names, reordered_names]
 
+<<<<<<< Updated upstream
 # decompose my hessian
+=======
+library(bdsmatrix)
+
+>>>>>>> Stashed changes
 gchol_reord_hessian <- gchol(reord_hessian)
 
 gchol_my_hessian <- gchol(my_hessian)
@@ -102,11 +107,15 @@ back_trans_hmat <- L %*% diag(D) %*% t(L)
 
 back_trans_hmat - (-1 * reord_hessian)
 
+<<<<<<< Updated upstream
 # for the fixed effects, estimates are of the same (to almost machine error).
+=======
+# for the fixed effects, estimates are the same.
+>>>>>>> Stashed changes
 vcov(fit)
 solve(-my_hessian)[1:3, 1:3]
 
-# looking at the variances and ignoring non-diagonal terms, they are not the same.
+# looking at the variances and ignoring non-diagonal terms, they are the same.
 cbind(
    myvar = diag(solve(-reord_hessian)),
    coxmevar = diag(fit$variance))
