@@ -24,8 +24,10 @@ my_loglik <- lp(parms = coxme_est_parms,
    theta = coxme_est_theta,
    data = ds)
 
+# what is the difference between our log likelihoods?
 fit$loglik["Penalized"] - my_loglik
 
+# and penalties?
 fit$penalty - attr(my_loglik, "penalty")
 
 
@@ -76,43 +78,44 @@ reordered_names <- colnames(my_hessian)[c(seq_len(my_k) + 3, 1:3)]
 
 reord_hessian <- my_hessian[reordered_names, reordered_names]
 
+# decompose my hessian
 gchol_reord_hessian <- gchol(reord_hessian)
 
 gchol_my_hessian <- gchol(my_hessian)
 
-# can get the original matrix back, but not perfectly. introduces errors of magnitude less than e-14
+# I can get the original matrix back, but not perfectly. introduces errors of magnitude less than e-14
 
 L <- as.matrix(gchol_reord_hessian)
 
 D <- diag(gchol_reord_hessian)
 
-(L %*% diag(D) %*% t(L) - reord_hessian) <(.Machine$double.neg.eps*100)
-
+# maximum error
+max(L %*% diag(D) %*% t(L) - reord_hessian)
 
 # Is fit_coxme$hmat the same as my_hessian after the appropriate transformations and reordering?
 
-L <- as.matrix(fit_coxme$hmat)
+L <- as.matrix(fit$hmat)
 
-D <- diag(fit_coxme$hmat)
+D <- diag(fit$hmat)
 
 back_trans_hmat <- L %*% diag(D) %*% t(L)
 
 back_trans_hmat - (-1 * reord_hessian)
 
-# for the fixed effects, estimates are of the same magnitude, but not the same.
-vcov(fit_coxme)
+# for the fixed effects, estimates are of the same (to almost machine error).
+vcov(fit)
 solve(-my_hessian)[1:3, 1:3]
 
 # looking at the variances and ignoring non-diagonal terms, they are not the same.
 cbind(
    myvar = diag(solve(-reord_hessian)),
-   coxmevar = diag(fit_coxme$variance))
+   coxmevar = diag(fit$variance))
 
 # solve(hmat) == coxme$variance
 # More precisely, the inverse of coxme$hmat differs from coxme$variance by less
 # than machine error.
-hmat_inv <- solve(fit_coxme$hmat, full = TRUE)
-all.equal(fit_coxme$variance, hmat_inv)
+hmat_inv <- solve(fit$hmat, full = TRUE)
+all.equal(fit$variance, hmat_inv)
 
 
 

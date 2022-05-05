@@ -270,3 +270,10 @@ ppl_hessian <- function(parms, X, t, cluster, dij, data, theta){
 
 
 
+
+
+
+
+
+
+

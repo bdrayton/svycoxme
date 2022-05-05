@@ -598,7 +598,7 @@ pl_theta <- function(theta, b, K_ppl){
 
   D <- theta * diag(length(b))
 
-  (-1/2) * ( log(det(D)) + log(det(K_ppl)) + t(b) %*% solve(D) %*% b )
+  c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + t(b) %*% solve(D) %*% b ))
 
 
 }
