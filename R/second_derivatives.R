@@ -136,7 +136,7 @@ bb <- function(parms, X, t, cluster, dij, data, theta, return_matrix = FALSE, ..
 
   unpenalised <- d7 %>%
     dplyr::mutate(
-      ll_parts = stat * ((cumsum_Zr_A * cumsum_Zs_A)/(cumsum_A)^2 - cumsum_ZrZs_A/cumsum_A)
+      ll_parts = {{dij}} * ((cumsum_Zr_A * cumsum_Zs_A)/(cumsum_A)^2 - cumsum_ZrZs_A/cumsum_A)
     ) %>%
     dplyr::summarise(ll_unpenalised = sum(ll_parts), .groups = "drop")
 
@@ -256,6 +256,85 @@ ppl_hessian <- function(parms, X, t, cluster, dij, data, theta){
 
 
 
+#' This is the K prime prime wrt b from appendix 1 of Ripatti Palmgren. It's a bit different to the b*b block from the hessian.
+#'
+#' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
+#' @param X character vector containing names of X columns in data.
+#' @param Z character vector containing names of Z columns in data.
+#' @param t column in data with time of failure/censoring data.
+#' @param dij column in data indicating if observation was censored or a failure.
+#' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
+#' @param data tibble with all these columns
+#'
+#' @export
+
+bb2 <- function(parms, X, t, cluster, dij, data, theta, return_matrix = FALSE, ...){
+
+  data_with_Z <- add_Z(data = data, cluster = cluster)
+
+  Z_names <- attr(data_with_Z, "Z_names")
+
+  b <- parms[-seq_len(length.out = length(X))]
+
+  D = theta * diag(length(b))
+
+  B <- parms[seq_len(length.out = length(X))]
+
+  sortedIndexedData <- sortAndIndex(data_with_Z, {{ t }})
+
+  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
+
+  d4 <- calcRiskSets(addedLP, vars = Z_names, varCol = "Zr")
+
+  d4a <- dplyr::select(d4, index, Zs = Zr, cumsum_Zs_A = cumsum_Zr_A)
+
+  d5 <- calcCrossProducts(sortedIndexedData, Z_names, Z_names, "Zr", "Zs")
+
+  d6Zr <- dplyr::left_join(d4, d5, by = c("index", "Zr"))
+
+  d6 <- dplyr::left_join(d6Zr, d4a, by = c("index", "Zs"))
+
+
+  d7 <- d6 %>%
+    dplyr::arrange(desc(index)) %>%
+    dplyr::group_by(Zr, Zs) %>%
+    dplyr::mutate(ZrZs_A = ZrZs * A,
+                  cumsum_ZrZs_A = cumsum(ZrZs_A)) %>%
+    dplyr::arrange(index) %>%
+    dplyr::group_by(Zr, Zs)
+
+  d8 <- d7 %>%
+    dplyr::mutate(cum_hazard = cumsum({{dij}}/cumsum_A))
+
+  unpenalised <- d8 %>%
+    dplyr::mutate(
+      ll_parts = cumsum_ZrZs_A * cum_hazard
+    ) %>%
+    dplyr::summarise(ll_unpenalised = sum(ll_parts), .groups = "drop")
+
+  penalty = as.data.frame(solve(D))
+
+  names(penalty) <- Z_names
+
+  penalty_long_df <- penalty %>%
+    dplyr::mutate(Zr = tidyselect::all_of(Z_names), .before = everything()) %>%
+    tidyr::pivot_longer(cols = Z_names, names_to = "Zs", values_to = "penalty")
+
+  ll <- dplyr::left_join(unpenalised, penalty_long_df, by = c("Zr", "Zs")) %>%
+    dplyr::mutate(ll = ll_unpenalised + penalty) %>%
+    dplyr::select(Zr, Zs, ll)
+
+  if(!return_matrix) {
+    return(ll)
+  } else {
+
+    ll %>% tidyr::pivot_wider(names_from = "Zs", values_from = "ll") %>%
+      tibble::column_to_rownames("Zr") %>%
+      as.matrix()
+
+  }
+
+}
 
 
 

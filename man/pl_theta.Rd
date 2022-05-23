@@ -2,7 +2,7 @@
 % Please edit documentation in R/ripatti_likelihoods.R
 \name{pl_theta}
 \alias{pl_theta}
-\title{profile likelihood for \theta}
+\title{profile likelihood for theta}
 \usage{
 pl_theta(theta, b, K_ppl, lp)
 }

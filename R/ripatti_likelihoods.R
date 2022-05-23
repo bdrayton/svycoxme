@@ -67,7 +67,7 @@ calcLinearPredictor <- function(data, X, Z, parms) {
 #'
 #' takes three fixed effects and one parameter, theta, that represents
 #' the variance of random effects drawn from a normal distribution.
-#'
+#' @export
 
 
 one_dataset <- function(control) {
@@ -383,7 +383,7 @@ inner <- function(a, b = a) {
 #' Shared frailty theta
 #'
 #' In a shared frailty model with i.i.d. frailty terms, the solution to the
-#' estimating equation for \theta has a closed form, implemented here.
+#' estimating equation for \eqn{\theta} has a closed form, implemented here.
 #'
 #'
 #'
@@ -398,7 +398,7 @@ est_theta <- function(b, K_ppl){
 #' Shared frailty theta
 #'
 #' In a shared frailty model with i.i.d. frailty terms, the solution to the
-#' estimating equation for \theta has a closed form, implemented here.
+#' estimating equation for \eqn{\theta} has a closed form, implemented here.
 #'
 #' In the code, the identity matrix is the derivative of D, but for more
 #' complex frailty models, D and it's derivative will be more complex (and this code won't work correctly).
@@ -587,7 +587,7 @@ estimate_parameters_loop <- function(beta,
 
 
 
-#' profile likelihood for \theta
+#' profile likelihood for theta
 #'
 #' Only for shared frailty models.
 #'

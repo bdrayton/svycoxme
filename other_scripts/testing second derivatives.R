@@ -76,6 +76,11 @@ L %*% diag(D) %*% t(L)
 diag(my_hessian)
 
 
+# test the k_ppl function
+debugonce(bb2)
+bb2(parms = my_params, X = my_X, t = t, cluster = "M", dij = stat,
+    data = sample_data, theta = my_theta, return_matrix = TRUE)
+
 
 
 

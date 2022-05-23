@@ -8,7 +8,7 @@ est_theta2(par, b, K_ppl)
 }
 \description{
 In a shared frailty model with i.i.d. frailty terms, the solution to the
-estimating equation for \theta has a closed form, implemented here.
+estimating equation for \eqn{\theta} has a closed form, implemented here.
 }
 \details{
 In the code, the identity matrix is the derivative of D, but for more
