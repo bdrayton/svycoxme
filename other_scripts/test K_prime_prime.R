@@ -42,7 +42,7 @@ my_D <-  test_theta * diag(length(my_b))
 
 fitph <- survival::coxph(survival::Surv(t, stat) ~ X1 + X2 + X3, data = ds)
 
-start_parms <- c(coef(fitph), rep(0, length(my_b)))
+start_parms <- c(coef(fitph), rep(0, my_nk))
 
 names(start_parms) <- c(my_X, paste0("Z", seq_len(my_nk)))
 
@@ -102,6 +102,69 @@ optim(c(0.8), fn = optim_ipl, gr = NULL, method = "L-BFGS-B", control = list(fns
 coxfit <- coxme::coxme(survival::Surv(t, stat) ~ X1 + X2 + X3 + (1|M), data = ds)
 
 coxme::VarCorr(coxfit)$M
+
+coxfit$loglik
+
+
+
+# lets look at theta ipl for just one set of b and beta.
+
+
+lps <- sapply(seq(0.001, 5, by = 0.1), function(test_theta){
+
+   pl_theta(theta = test_theta, b = fit_optim$par[-seq_along(my_X)],
+            K_ppl = K_prime_prime(parms = fit_optim$par,
+                                  X = my_X,
+                                  t = t,
+                                  dij = stat,
+                                  theta = test_theta,
+                                  cluster = "M",
+                                  data = ds))
+
+})
+
+plot(seq(0.001, 5, by = 0.1), lps, type = "l")
+
+lps <- sapply(seq(0.00001, 0.002, by = 0.0001), function(test_theta){
+
+   pl_theta(theta = test_theta, b = fit_optim$par[-seq_along(my_X)],
+            K_ppl = K_prime_prime(parms = fit_optim$par,
+                                  X = my_X,
+                                  t = t,
+                                  dij = stat,
+                                  theta = test_theta,
+                                  cluster = "M",
+                                  data = ds))
+
+})
+
+plot(seq(0.00001, 0.002, by = 0.0001), lps, type = "l")
+
+
+pl_theta(theta = VarCorr(coxfit)$M, b = ranef(coxfit)$M,
+         K_ppl = K_prime_prime(parms = c(fixef(coxfit), ranef(coxfit)$M),
+                               X = my_X,
+                               t = t,
+                               dij = stat,
+                               theta = VarCorr(coxfit)$M,
+                               cluster = "M",
+                               data = ds))
+
+lp(parms = c(fixef(coxfit), ranef(coxfit)$M),
+   X = my_X,
+   t = t,
+   dij = stat,
+   theta = VarCorr(coxfit)$M,
+   cluster = "M",
+   data = ds) -10.39223 + inner(ranef(coxfit)$M) * VarCorr(coxfit)$M
+
+
+
+
+
+
+
+
 
 
 
