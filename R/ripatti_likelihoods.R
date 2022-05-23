@@ -594,18 +594,21 @@ estimate_parameters_loop <- function(beta,
 #' @export
 #'
 
-pl_theta <- function(theta, b, K_ppl, lp){
+pl_theta <- function(theta, b, K_ppl){
+#
+#   # This is the IPL, removing the bit that doesn't depend on theta, which should be
+#   # fine, but... maybe not? Below I try adding it back in.
+#
+#   D <- theta * diag(length(b))
+#
+#   c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + 2 * lp))
 
-  # This is the IPL, removing the bit that doesn't depend on theta, which should be
-  # fine, but... maybe not? Below I try adding it back in.
+  # change of plan again,
 
-  # D <- theta * diag(length(b))
-  #
-  # c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + t(b) %*% solve(D) %*% b ))
+    D <- theta * diag(length(b))
 
-  D <- theta * diag(length(b))
+    c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + inner(b) * theta ))
 
-  c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + 2 * lp))
 
 
 }
@@ -640,10 +643,18 @@ optim_ipl <- function(theta, start_parms, X, t, cluster, dij, data) {
 
     b_hat <- fit_optim$par[-seq_along(X)]
 
-    K_ppl_hat <- bb(parms = fit_optim$par, X = X, t = {{ t }}, cluster = cluster,
-                    dij = {{ dij }}, data = data, theta = theta, return_matrix = TRUE)
+    K_ppl_hat <- K_prime_prime(parms = fit_optim$par,
+                         X = X,
+                         t = {{ t }},
+                         dij = {{ dij }},
+                         theta = theta,
+                         cluster = cluster,
+                         data = data)
 
-    ipl <- pl_theta(theta = theta, b = b_hat, K_ppl = K_ppl_hat, lp = fit_optim$value)
+    # this is when using lp the full lp instead of just the penalty, which is the only bit involving theta.
+    # ipl <- pl_theta(theta = theta, b = b_hat, K_ppl = K_ppl_hat, lp = fit_optim$value)
+
+    ipl <- pl_theta(theta = theta, b = b_hat, K_ppl = K_ppl_hat)
 
     ipl
 
@@ -651,9 +662,43 @@ optim_ipl <- function(theta, start_parms, X, t, cluster, dij, data) {
 
 
 
+#' K''
+#'
+#' Ripatti Palmgren sub out K'' for K_ppl''. Here I implement K'' so I can compare the use of both
+#' methods. This involves calculation of the breslow estimator of cumulative hazard.
+#'
+#'
+#'
+#' @export
+#'
 
+K_prime_prime <- function(parms, X, t, dij, theta, cluster, data, ...) {
 
+    data_with_Z <- add_Z(data, cluster)
+    sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ t }})
 
+    b <- parms[-seq_len(length.out = length(X))]
+
+    my_cluster <- as.symbol(cluster)
+
+    D = theta * diag(length(b))
+
+    terms1 <- calcLinearPredictor(sortedIndexedData, X = X, Z = attr(data_with_Z, "Z_names"), parms = parms)
+
+    terms2 <- calcRiskSets(terms1)
+
+    ll <- terms2 %>%
+      dplyr::mutate(d_cumhaz = {{ dij }} / cumsum_A,
+                    cumhaz = cumsum(d_cumhaz),
+                    li = cumhaz * A) %>%
+      dplyr::group_by({{ my_cluster }}) %>%
+      dplyr::summarise(ll = sum(li), .groups = "drop") %>%
+      dplyr::arrange({{ my_cluster }}) %>%
+      dplyr::pull(ll)
+
+    diag(ll) + solve(D)
+
+  }
 
 
 

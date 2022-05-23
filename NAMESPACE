@@ -2,6 +2,7 @@
 
 export(BB)
 export(Bb)
+export(K_prime_prime)
 export(add_Z)
 export(bb)
 export(est_theta)

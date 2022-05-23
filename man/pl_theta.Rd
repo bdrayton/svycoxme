@@ -4,7 +4,7 @@
 \alias{pl_theta}
 \title{profile likelihood for \theta}
 \usage{
-pl_theta(theta, b, K_ppl)
+pl_theta(theta, b, K_ppl, lp)
 }
 \description{
 Only for shared frailty models.
