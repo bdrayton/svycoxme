@@ -594,18 +594,60 @@ estimate_parameters_loop <- function(beta,
 #' @export
 #'
 
-pl_theta <- function(theta, b, K_ppl){
+pl_theta <- function(theta, b, K_ppl, lp){
+
+  # This is the IPL, removing the bit that doesn't depend on theta, which should be
+  # fine, but... maybe not? Below I try adding it back in.
+
+  # D <- theta * diag(length(b))
+  #
+  # c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + t(b) %*% solve(D) %*% b ))
 
   D <- theta * diag(length(b))
 
-  c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + t(b) %*% solve(D) %*% b ))
+  c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + 2 * lp))
 
 
 }
 
 
+#' likelihood function for optim. Takes a value of \eqn{\theta}, plus everything
+#' needed to maximise \eqn{\beta} and \eqn{b} for that \eqn{\theta}. In future,
+#' need to extend this to work for a vector of thetas.
+#'
+#' @export
 
+optim_ipl <- function(theta, start_parms, X, t, cluster, dij, data) {
 
+    # estimate beta and b for given theta
+
+    nb <- dplyr::n_distinct(data[, cluster, drop = TRUE])
+
+    fit_optim <- optim(par = start_parms,
+                       fn = lp,
+                       gr = lp_grd,
+                       X = X,
+                       t = {{ t }},
+                       cluster = cluster,
+                       dij = {{ dij }},
+                       D = theta * diag(nb),
+                       theta = theta,
+                       data = data,
+                       method = "BFGS",
+                       control = list(fnscale = -1))
+
+    # return likelihood for given theta, and estimated beta and b
+
+    b_hat <- fit_optim$par[-seq_along(X)]
+
+    K_ppl_hat <- bb(parms = fit_optim$par, X = X, t = {{ t }}, cluster = cluster,
+                    dij = {{ dij }}, data = data, theta = theta, return_matrix = TRUE)
+
+    ipl <- pl_theta(theta = theta, b = b_hat, K_ppl = K_ppl_hat, lp = fit_optim$value)
+
+    ipl
+
+}
 
 
 
