@@ -30,19 +30,21 @@ test_loop <- estimate_parameters_loop(start_theta = 0.5,
                     stat_time = stat_time,
                     cluster = "M",
                     dij = stat,
-                    data = ds)
-
-library(coxme)
-
-coxme_fit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1|M), data = ds)
-
-coxme::fixef(coxme_fit)
-coxme::ranef(coxme_fit)
-coxme::VarCorr(coxme_fit)
+                    data = ds, max_iter = 200)
 
 test_loop$converged
 
-tail(test_loop$estimate_history, 1)
+ests <- tail(test_loop$estimate_history, 1)[[1]]
+
+coxme_fit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1|M), data = ds)
+
+coxme::VarCorr(coxme_fit)
+ests$new_theta
+
+cbind(c(ests$new_beta_b, theta = ests$new_theta),
+      c(coxme::fixef(coxme_fit),
+        coxme::ranef(coxme_fit)$M, theta = coxme::VarCorr(coxme_fit)$M))
+
 
 
 
