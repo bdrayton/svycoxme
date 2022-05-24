@@ -4,7 +4,7 @@
 \alias{ppl_hessian}
 \title{Calculate the PPL hessian}
 \usage{
-ppl_hessian(parms, X, t, cluster, dij, data, theta)
+ppl_hessian(parms, X, stat_time, cluster, dij, data, theta)
 }
 \description{
 Calculate the PPL hessian

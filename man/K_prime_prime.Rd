@@ -4,7 +4,7 @@
 \alias{K_prime_prime}
 \title{K''}
 \usage{
-K_prime_prime(parms, X, t, dij, theta, cluster, data, ...)
+K_prime_prime(parms, X, stat_time, dij, theta, cluster, data, ...)
 }
 \description{
 Ripatti Palmgren sub out K'' for K_ppl''. Here I implement K'' so I can compare the use of both

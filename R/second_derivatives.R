@@ -43,7 +43,7 @@ add_Z <- function(data, cluster){
 
 
 
-BB <- function(parms, X, t, cluster, dij, data){
+BB <- function(parms, X, stat_time, cluster, dij, data){
 
   data_with_Z <- add_Z(data = data, cluster = cluster)
 
@@ -53,7 +53,7 @@ BB <- function(parms, X, t, cluster, dij, data){
 
   B <- parms[seq_len(length.out = length(X))]
 
-  sortedIndexedData <- sortAndIndex(data_with_Z, {{ t }})
+  sortedIndexedData <- sortAndIndex(data_with_Z, {{ stat_time }})
 
   addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
 
@@ -99,7 +99,7 @@ BB <- function(parms, X, t, cluster, dij, data){
 #'
 #' @export
 
-bb <- function(parms, X, t, cluster, dij, data, theta, return_matrix = FALSE, ...){
+bb <- function(parms, X, stat_time, cluster, dij, data, theta, return_matrix = FALSE, ...){
 
   data_with_Z <- add_Z(data = data, cluster = cluster)
 
@@ -111,7 +111,7 @@ bb <- function(parms, X, t, cluster, dij, data, theta, return_matrix = FALSE, ..
 
   B <- parms[seq_len(length.out = length(X))]
 
-  sortedIndexedData <- sortAndIndex(data_with_Z, {{ t }})
+  sortedIndexedData <- sortAndIndex(data_with_Z, {{ stat_time }})
 
   addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
 
@@ -178,7 +178,7 @@ bb <- function(parms, X, t, cluster, dij, data, theta, return_matrix = FALSE, ..
 #'
 #' @export
 
-Bb <- function(parms, X, t, cluster, dij, data){
+Bb <- function(parms, X, stat_time, cluster, dij, data){
 
   data_with_Z <- add_Z(data = data, cluster = cluster)
 
@@ -188,7 +188,7 @@ Bb <- function(parms, X, t, cluster, dij, data){
 
   B <- parms[seq_len(length.out = length(X))]
 
-  sortedIndexedData <- sortAndIndex(data_with_Z, {{ t }})
+  sortedIndexedData <- sortAndIndex(data_with_Z, {{ stat_time }})
 
   addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
 
@@ -226,18 +226,18 @@ Bb <- function(parms, X, t, cluster, dij, data){
 #' @export
 #'
 
-ppl_hessian <- function(parms, X, t, cluster, dij, data, theta){
+ppl_hessian <- function(parms, X, stat_time, cluster, dij, data, theta){
 
 
-  H11_long <- BB(parms = parms, X = X, t = {{ t }}, cluster = "M",
+  H11_long <- BB(parms = parms, X = X, stat_time = {{ stat_time }}, cluster = "M",
                  dij = {{ dij }}, data = data) %>%
               dplyr::rename(rows = Xr, cols = Xs)
 
-  H22_long <- bb(parms = parms, X = X, t = {{ t }}, cluster = "M",
+  H22_long <- bb(parms = parms, X = X, stat_time = {{ stat_time }}, cluster = "M",
                  dij = {{ dij }}, data = data, theta = theta) %>%
               dplyr::rename(rows = Zr, cols = Zs)
 
-  H21_long <- Bb(parms = parms, X = X, t = {{ t }}, cluster = "M",
+  H21_long <- Bb(parms = parms, X = X, stat_time = {{ stat_time}}, cluster = "M",
                  dij = {{ dij }}, data = data) %>%
               dplyr::rename(rows = Xr, cols = Zr)
 
@@ -268,7 +268,7 @@ ppl_hessian <- function(parms, X, t, cluster, dij, data, theta){
 #'
 #' @export
 
-bb2 <- function(parms, X, t, cluster, dij, data, theta, return_matrix = FALSE, ...){
+bb2 <- function(parms, X, stat_time, cluster, dij, data, theta, return_matrix = FALSE, ...){
 
   data_with_Z <- add_Z(data = data, cluster = cluster)
 
@@ -280,7 +280,7 @@ bb2 <- function(parms, X, t, cluster, dij, data, theta, return_matrix = FALSE, .
 
   B <- parms[seq_len(length.out = length(X))]
 
-  sortedIndexedData <- sortAndIndex(data_with_Z, {{ t }})
+  sortedIndexedData <- sortAndIndex(data_with_Z, {{ stat_time }})
 
   addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
 

@@ -6,7 +6,16 @@
 needed to maximise \eqn{\beta} and \eqn{b} for that \eqn{\theta}. In future,
 need to extend this to work for a vector of thetas.}
 \usage{
-optim_ipl(theta, start_parms, X, t, cluster, dij, data)
+optim_ipl(
+  theta,
+  start_parms,
+  X,
+  stat_time,
+  cluster,
+  dij,
+  data,
+  likelihood_only = FALSE
+)
 }
 \description{
 likelihood function for optim. Takes a value of \eqn{\theta}, plus everything

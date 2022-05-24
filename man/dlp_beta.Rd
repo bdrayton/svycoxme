@@ -4,7 +4,7 @@
 \alias{dlp_beta}
 \title{partial derivative with respect to the fixed effects, \eqn{\beta}.}
 \usage{
-dlp_beta(parms, X, cluster, t, dij, data, ...)
+dlp_beta(parms, X, cluster, stat_time, dij, data, ...)
 }
 \arguments{
 \item{parms}{numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.}
@@ -13,11 +13,11 @@ dlp_beta(parms, X, cluster, t, dij, data, ...)
 
 \item{cluster}{charter vector with column name containing cluster membership}
 
-\item{t}{column in data with time of failure/censoring data.}
-
 \item{dij}{column in data indicating if observation was censored or a failure.}
 
 \item{data}{tibble with all these columns}
+
+\item{t}{column in data with time of failure/censoring data.}
 
 \item{D}{diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.}
 }

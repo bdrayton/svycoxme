@@ -90,11 +90,11 @@ one_dataset <- function(control) {
 
   error = rexp(n, 10)
 
-  t = exp(-X%*%control$beta - b_rep) * error
+  stat_time = exp(-X%*%control$beta - b_rep) * error
 
   stat = sample(rep(c(0, 1), round(n*c(0.2, 0.8))), n)
 
-  dataset = data.frame(X, t, stat, M)
+  dataset = data.frame(X, stat_time, stat, M)
 
   attr(dataset, "random_effects") <- b
 
@@ -161,16 +161,17 @@ calcRiskSets <- function(data, vars = NULL, varCol = NULL, A = A, index = index)
 #'
 #' @export
 
-lp <- function(parms, X, t, dij, theta, cluster, data, ...) {
+lp <- function(parms, X, stat_time, dij, theta, cluster, data, ...) {
 
   data_with_Z <- add_Z(data, cluster)
-  sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ t }})
+  sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ stat_time }})
 
   b <- parms[-seq_len(length.out = length(X))]
 
   D = theta * diag(length(b))
 
-  penalty = c(0.5 * t(b)%*%solve(D)%*%b)
+  # penalty = c(0.5 * t(b)%*%solve(D)%*%b)
+  penalty = 0.5 * inner(a = b) * 1/theta
 
   terms1 <- calcLinearPredictor(sortedIndexedData, X = X, Z = attr(data_with_Z, "Z_names"), parms = parms)
 
@@ -189,9 +190,9 @@ lp <- function(parms, X, t, dij, theta, cluster, data, ...) {
 
 }
 
-minuslp <- function(parms, X, t, dij, D, data, ...) {
+minuslp <- function(parms, X, stat_time, dij, D, data, ...) {
   -1 * lp(
-    parms = parms, X = X, t = {{ t }},
+    parms = parms, X = X, stat_time = {{ stat_time }},
     dij = {{ dij }}, D = D, data = data, ... = ...
   )
 }
@@ -257,7 +258,7 @@ calcCrossProducts <- function(data, f1, f2, n1, n2) {
 #' @param data tibble with all these columns
 
 
-dlp_beta <- function(parms, X, cluster, t, dij, data, ...) {
+dlp_beta <- function(parms, X, cluster, stat_time, dij, data, ...) {
 
 
 #   Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
@@ -274,7 +275,7 @@ dlp_beta <- function(parms, X, cluster, t, dij, data, ...) {
 
   B <- parms[seq_len(length.out = length(X))]
 
-  sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ t }})
+  sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ stat_time }})
 
   addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
 
@@ -299,7 +300,7 @@ dlp_beta <- function(parms, X, cluster, t, dij, data, ...) {
 #' @param data tibble with all these columns
 
 
-dlp_b <- function(parms, X, cluster, t, dij, D, data, ...) {
+dlp_b <- function(parms, X, cluster, stat_time, dij, D, data, ...) {
 
   # Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
   #
@@ -315,7 +316,7 @@ dlp_b <- function(parms, X, cluster, t, dij, D, data, ...) {
 
   Z_names <- attr(data_with_Z, "Z_names")
 
-  sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ t }})
+  sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ stat_time }})
 
   b <- parms[-seq_len(length.out = length(X))]
 
@@ -348,18 +349,18 @@ dlp_b <- function(parms, X, cluster, t, dij, D, data, ...) {
 #'
 #' @export
 
-lp_grd <- function(parms, X, cluster, t, dij, theta, data, ...) {
+lp_grd <- function(parms, X, cluster, stat_time, dij, theta, data, ...) {
 
   b <- parms[-seq_len(length.out = length(X))]
 
   D <- theta * diag(length(b))
 
   l4 <- dlp_beta(parms = parms, X = X, cluster = cluster,
-                 t = {{ t }}, dij = {{ dij }}, data = data) %>%
+                 stat_time = {{ stat_time }}, dij = {{ dij }}, data = data) %>%
     dplyr::pull(ll)
 
   l5 <- dlp_b(parms  = parms, X = X, cluster = cluster,
-              t = {{ t }}, dij = {{ dij }}, D = D, data = data) %>%
+              stat_time = {{ stat_time }}, dij = {{ dij }}, D = D, data = data) %>%
     dplyr::pull(ll)
 
   c(l4, l5)
@@ -439,7 +440,7 @@ est_theta2 <- function(par, b, K_ppl){
 
 
 
-est_theta3 <- function(par, parms, X, t, cluster, dij, data, b){
+est_theta3 <- function(par, parms, X, stat_time, cluster, dij, data, b){
 
   theta = par
 
@@ -451,7 +452,7 @@ est_theta3 <- function(par, parms, X, t, cluster, dij, data, b){
 
   q = length(b)
 
-  K_ppl <- bb(parms = my_params, X = X, t = t,
+  K_ppl <- bb(parms = my_params, X = X, stat_time = stat_time,
               cluster = "M", dij = stat, data = sample_data,
               theta = theta, return_matrix = TRUE)
 
@@ -462,8 +463,41 @@ est_theta3 <- function(par, parms, X, t, cluster, dij, data, b){
 }
 
 
+#' likelihood for theta
+#'
+#' @export
+#'
+#'
+#'
 
+theta_ipl <-   function(one_theta, parms, X, stat_time, dij, cluster, data ){
 
+  D <- one_theta * diag(length(parms) - length(X))
+
+  kbb <- bb(parms = parms,
+            X = X,
+            stat_time = {{ stat_time }},
+            dij = {{ dij }},
+            theta = one_theta,
+            cluster = cluster,
+            data = data,
+            return_matrix = TRUE)
+
+  penalised <- lp(parms = parms,
+                  X = X,
+                  stat_time = {{ stat_time }},
+                  dij = {{ dij }},
+                  theta = one_theta,
+                  cluster = cluster,
+                  data = data)
+
+  ipl <- -0.5 * log(det(D)) - 0.5 * log(det(kbb)) + penalised
+
+  attr(ipl, "penalty") <- NULL
+
+  ipl
+
+}
 
 
 #' estimate all parameters in a shared frailty model
@@ -475,44 +509,45 @@ est_theta3 <- function(par, parms, X, t, cluster, dij, data, b){
 #'
 #' @export
 
-estimate_parameters <- function(start_parms, theta, X, t, cluster, dij, data){
+estimate_parameters <- function(start_theta,
+                                start_parms,
+                                X,
+                                stat_time,
+                                cluster,
+                                dij,
+                                data) {
 
-  # estimate beta and b for given theta
+  fit_beta_b <- optim(par = start_parms,
+                      fn = lp,
+                      gr = lp_grd,
+                      X = X,
+                      stat_time = {{ stat_time }},
+                      cluster = cluster,
+                      dij = {{ dij }},
+                      theta = start_theta,
+                      data = data,
+                      method = "BFGS",
+                      control = list(fnscale = -1))
 
-  nb <- dplyr::n_distinct(data[, cluster, drop = TRUE])
-
-  fit_optim <- optim(par = start_parms,
-                     fn = lp,
-                     gr = lp_grd,
+  fit_theta <- optim(par = c(start_theta),
+                     fn = theta_ipl,
+                     gr = NULL,
+                     parms = fit_beta_b$par,
                      X = X,
-                     t = {{ t }},
-                     cluster = cluster,
+                     stat_time = {{ stat_time }},
                      dij = {{ dij }},
-                     D = theta * diag(nb),
-                     theta = theta,
+                     cluster = cluster,
                      data = data,
-                     method = "BFGS",
-                     control = list(fnscale = -1))
+                     method = "L-BFGS-B",
+                     control = list(fnscale = -1),
+                     lower = 0.00001,
+                     upper = 1000)
 
-  # estimate theta for given beta and b
+  # check convergence
+  if(fit_beta_b$convergence != 0 | fit_theta$convergence != 0 ) stop("failed to converge")
 
-  b_hat <- fit_optim$par[-seq_along(X)]
-
-  K_ppl <- bb(parms = fit_optim$par, X = X, t = {{ t }}, cluster = cluster,
-              dij = {{ dij }}, data = data, theta = theta, return_matrix = TRUE)
-
-  # new_theta = est_theta2(par = theta, b = b_hat, K_ppl = K_ppl)
-
-  # new_theta = est_theta(b_hat, K_ppl)
-  # new_theta <- var(b_hat)
-
-  new_theta = optim(par = theta, fn = pl_theta, b = b_hat, K_ppl = K_ppl, method = "Brent", lower = 0, upper = 100,
-                    control = list(fnscale = -1))$par
-
-
-  list(new_theta = new_theta,
-       new_parms = fit_optim$par)
-
+  list(new_theta = fit_theta$par,
+       new_beta_b = fit_beta_b$par)
 
 }
 
@@ -522,40 +557,35 @@ estimate_parameters <- function(start_parms, theta, X, t, cluster, dij, data){
 #'
 #' @export
 
-estimate_parameters_loop <- function(beta,
-                                     theta,
-                                     k,
-                                     nk,
-                                     cluster = "M",
+estimate_parameters_loop <- function(start_theta,
+                                     start_parms,
+                                     X,
+                                     stat_time,
+                                     cluster,
+                                     dij,
+                                     data,
                                      max_iter = 100,
-                                     convergence_threshold = 0.00001,
-                                     start_theta = 4,
-                                     X = c("X1", "X2", "X3")){
+                                     convergence_threshold = 0.00001){
 
-  sample_data <- one_dataset(control = list(k = k, nk = nk, beta = beta, theta = theta))
-
-  fit <- survival::coxph(survival::Surv(t, stat) ~ X1 + X2 + X3, data = sample_data)
-
-  nb <- dplyr::n_distinct(sample_data[, cluster, drop = TRUE])
-
-  start_parameters = c(coef(fit), rep(0, nb))
-
-  names(start_parameters) <- c(X, paste0("Z", seq_len(nb)))
-
-  current_estimates <- estimate_parameters(start_parms = start_parameters, theta = start_theta, X = X, t = "t",
-                                           cluster = cluster, dij = stat, data = sample_data)
+  current_estimates <- estimate_parameters(start_theta = start_theta,
+                                           start_parms = start_parms,
+                                           X = X,
+                                           stat_time = {{ stat_time }},
+                                           cluster = "M",
+                                           dij = {{dij}},
+                                           data = data)
 
   estimate_history <- list(current_estimates)
 
   for (i in 1:max_iter) {
 
-    current_estimates <- try(estimate_parameters(start_parms = current_estimates$new_parms,
-                                                 theta = current_estimates$new_theta,
+    current_estimates <- try(estimate_parameters(start_theta = current_estimates$new_theta,
+                                                 start_parms = current_estimates$new_beta_b,
                                                  X = X,
-                                                 t = "t",
-                                                 cluster = cluster,
-                                                 dij = stat,
-                                                 data = sample_data))
+                                                 stat_time = {{ stat_time }},
+                                                 cluster = "M",
+                                                 dij = {{dij}},
+                                                 data = data))
 
     if("try-error" %in% class(current_estimates)) {
       converged = FALSE
@@ -566,7 +596,7 @@ estimate_parameters_loop <- function(beta,
     estimate_history[[i+1]] <- current_estimates
 
     biggest_diff = max(abs(c(estimate_history[[i]]$new_theta - estimate_history[[i+1]]$new_theta,
-                             estimate_history[[i]]$new_parms - estimate_history[[i+1]]$new_parms)), na.rm = TRUE)
+                             estimate_history[[i]]$new_beta_b - estimate_history[[i+1]]$new_beta_b)), na.rm = TRUE)
 
     if(biggest_diff <= convergence_threshold){
       converged = TRUE
@@ -580,8 +610,7 @@ estimate_parameters_loop <- function(beta,
 
   list(
     estimate_history = estimate_history,
-    converged = converged,
-    sample_data = sample_data)
+    converged = converged)
 
 }
 
@@ -620,20 +649,17 @@ pl_theta <- function(theta, b, K_ppl){
 #'
 #' @export
 
-optim_ipl <- function(theta, start_parms, X, t, cluster, dij, data) {
+optim_ipl <- function(theta, start_parms, X, stat_time, cluster, dij, data, likelihood_only = FALSE) {
 
     # estimate beta and b for given theta
-
-    nb <- dplyr::n_distinct(data[, cluster, drop = TRUE])
 
     fit_optim <- optim(par = start_parms,
                        fn = lp,
                        gr = lp_grd,
                        X = X,
-                       t = {{ t }},
+                       stat_time = {{ stat_time }},
                        cluster = cluster,
                        dij = {{ dij }},
-                       D = theta * diag(nb),
                        theta = theta,
                        data = data,
                        method = "BFGS",
@@ -641,22 +667,35 @@ optim_ipl <- function(theta, start_parms, X, t, cluster, dij, data) {
 
     # return likelihood for given theta, and estimated beta and b
 
-    b_hat <- fit_optim$par[-seq_along(X)]
+    D <- theta * diag(length(start_parms) - length(X))
 
-    K_ppl_hat <- K_prime_prime(parms = fit_optim$par,
-                         X = X,
-                         t = {{ t }},
-                         dij = {{ dij }},
-                         theta = theta,
-                         cluster = cluster,
-                         data = data)
+    kbb <- bb(parms = fit_optim$par,
+              X = my_X,
+              stat_time = stat_time,
+              dij = stat,
+              theta = theta,
+              cluster = "M",
+              data = ds,
+              return_matrix = TRUE)
 
-    # this is when using lp the full lp instead of just the penalty, which is the only bit involving theta.
-    # ipl <- pl_theta(theta = theta, b = b_hat, K_ppl = K_ppl_hat, lp = fit_optim$value)
+    penalised <- lp(parms = fit_optim$par,
+                    X = my_X,
+                    stat_time = stat_time,
+                    dij = stat,
+                    theta = theta,
+                    cluster = "M",
+                    data = ds)
 
-    ipl <- pl_theta(theta = theta, b = b_hat, K_ppl = K_ppl_hat)
 
-    ipl
+    ipl <- -0.5 * log(det(D)) - 0.5 * log(det(kbb)) + penalised
+
+    attr(ipl, "penalty") <- NULL
+
+    if(likelihood_only){
+      return(ipl)
+    }
+
+    list(fit_optim, ipl)
 
 }
 
@@ -672,10 +711,10 @@ optim_ipl <- function(theta, start_parms, X, t, cluster, dij, data) {
 #' @export
 #'
 
-K_prime_prime <- function(parms, X, t, dij, theta, cluster, data, ...) {
+K_prime_prime <- function(parms, X, stat_time, dij, theta, cluster, data, ...) {
 
     data_with_Z <- add_Z(data, cluster)
-    sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ t }})
+    sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ stat_time }})
 
     b <- parms[-seq_len(length.out = length(X))]
 

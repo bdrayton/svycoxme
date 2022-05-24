@@ -13,13 +13,11 @@ export(estimate_parameters)
 export(estimate_parameters_loop)
 export(lp)
 export(lp_grd)
-<<<<<<< Updated upstream
-export(optim_ipl)
-=======
 export(one_dataset)
->>>>>>> Stashed changes
+export(optim_ipl)
 export(pl_theta)
 export(ppl_hessian)
 export(sortAndIndex)
+export(theta_ipl)
 importFrom(magrittr,"%>%")
 importFrom(rlang,":=")

@@ -4,20 +4,20 @@
 \alias{Bb}
 \title{Wang 2019 likelihood differentiated twice with respect to the fixed effects, \eqn{\beta}.}
 \usage{
-Bb(parms, X, t, cluster, dij, data)
+Bb(parms, X, stat_time, cluster, dij, data)
 }
 \arguments{
 \item{parms}{numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.}
 
 \item{X}{character vector containing names of X columns in data.}
 
-\item{t}{column in data with time of failure/censoring data.}
-
 \item{dij}{column in data indicating if observation was censored or a failure.}
 
 \item{data}{tibble with all these columns}
 
 \item{Z}{character vector containing names of Z columns in data.}
+
+\item{t}{column in data with time of failure/censoring data.}
 
 \item{wi}{column in data containing cluster-level weights.}
 

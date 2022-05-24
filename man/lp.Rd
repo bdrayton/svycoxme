@@ -4,18 +4,18 @@
 \alias{lp}
 \title{penalised partial likelihood in Ripatti 2000}
 \usage{
-lp(parms, X, t, dij, theta, cluster, data, ...)
+lp(parms, X, stat_time, dij, theta, cluster, data, ...)
 }
 \arguments{
 \item{parms}{numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.}
 
 \item{X}{character vector containing names of X columns in data.}
 
-\item{t}{column in data with time of failure/censoring data.}
-
 \item{dij}{column in data indicating if observation was censored or a failure.}
 
 \item{data}{tibble with all these columns}
+
+\item{t}{column in data with time of failure/censoring data.}
 
 \item{i}{column in data that identifies clusters.}
 

@@ -4,7 +4,7 @@
 \alias{lp_grd}
 \title{lp_grd}
 \usage{
-lp_grd(parms, X, cluster, t, dij, theta, data, ...)
+lp_grd(parms, X, cluster, stat_time, dij, theta, data, ...)
 }
 \description{
 combine the gradient function for \eqn{\beta} and b to make one vector of
