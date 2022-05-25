@@ -122,7 +122,7 @@ calcRiskSets <- function(data, vars = NULL, varCol = NULL, A = A, index = index)
     data %>%
       dplyr::arrange(dplyr::desc({{ index }})) %>%
       dplyr::mutate(cumsum_A = cumsum(A)) %>%
-      dplyr::arrange(index)
+      dplyr::arrange({{ index }})
   } else {
     varColName <- rlang::sym(varCol)
 
@@ -166,7 +166,7 @@ lp <- function(parms, X, stat_time, dij, theta, cluster, data, ...) {
   data_with_Z <- add_Z(data, cluster)
   sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ stat_time }})
 
-  b <- parms[-seq_len(length.out = length(X))]
+  b <- parms[-seq_along(X)]
 
   D = theta * diag(length(b))
 
@@ -499,6 +499,38 @@ theta_ipl <-   function(one_theta, parms, X, stat_time, dij, cluster, data ){
 
 }
 
+#' first derivative of the likelihood for theta
+#'
+#' This is the simplified version, assuming shared frailty.
+#'
+#'
+#' @export
+
+theta_ipl_gr <- function(one_theta, parms, X, stat_time, dij, cluster, data) {
+
+  b <- parms[-seq_along(X)]
+
+  D <- one_theta * diag(length(b))
+
+  D_inv <- solve(D)
+
+  theta_inv <- 1/one_theta
+
+  kbb <- bb(parms = parms,
+            X = X,
+            stat_time = {{ stat_time }},
+            dij = {{ dij }},
+            theta = one_theta,
+            cluster = cluster,
+            data = data,
+            return_matrix = TRUE)
+
+  0.5 * (inner(b) * (theta_inv)^2 - sum(length(b)*theta_inv) - sum(diag(solve(kbb))))
+
+}
+
+
+
 
 #' estimate all parameters in a shared frailty model
 #'
@@ -558,6 +590,8 @@ estimate_parameters <- function(start_theta,
 #' theta, and estimating theta given the current estimates fixed and random effects,
 #' until convergence is reached.
 #'
+#' returns the optim results, plus variance information for all estimated parameters
+#'
 #'
 #' @export
 
@@ -596,6 +630,8 @@ estimate_parameters2 <- function(start_theta,
                      upper = 1000,
                      hessian = TRUE)
 
+
+
   # check convergence
   if(fit_beta_b$convergence != 0 | fit_theta$convergence != 0 ) stop("failed to converge")
 
@@ -603,6 +639,9 @@ estimate_parameters2 <- function(start_theta,
        new_beta_b = fit_beta_b)
 
 }
+
+
+
 
 
 #' loops estimate_parameters and est_theta until convergence or max iterations
@@ -666,6 +705,21 @@ estimate_parameters_loop <- function(start_theta,
     converged = converged)
 
 }
+
+
+
+# estimates variance of theta using the formula for shared frailty from ripatti palmgren
+# the parameters should be taken from the optim steps in estimate_parameters.
+
+var_theta <- function(){
+
+
+}
+
+
+
+
+
 
 
 

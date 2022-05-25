@@ -1,10 +1,73 @@
 my_beta = c(1, -0.7, 0.5)
-my_theta = 1
-my_k = 50
-my_nk = 4
+my_theta = 0.2
+my_k = 10
+my_nk = 10
 my_X = c("X1", "X2", "X3")
 
 ds <- one_dataset(list(k = my_k, nk = my_nk, beta = my_beta, theta = my_theta))
+
+
+fit0 <- survival::coxph(survival::Surv(stat_time, stat) ~ X1 + X2 + X3, data = ds)
+
+my_start_parameters <- c(coef(fit0), rep(0, my_k))
+names(my_start_parameters) <- c(my_X, paste0("Z", seq_len(my_k)))
+
+test_loop <- estimate_parameters_loop(start_theta = 0.5,
+                                      start_parms = my_start_parameters,
+                                      X = my_X,
+                                      stat_time = stat_time,
+                                      cluster = "M",
+                                      dij = stat,
+                                      data = ds, max_iter = 200)
+
+ests <- tail(test_loop$estimate_history, 1)[[1]]
+
+theta_ipl_gr(one_theta = ests$new_theta,
+             parms = ests$new_beta_b,
+             X = my_X,
+             stat_time = stat_time,
+             dij = stat,
+             cluster = "M",
+             data = ds)
+
+coxme_fit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1|M), data = ds)
+
+library(bdsmatrix)
+D <- diag(coxme_fit$hmat)
+L <- as.matrix(coxme_fit$hmat)
+
+hess <- L %*% diag(D) %*% t(L)
+
+hess_22 <- hess[seq_len(my_k), seq_len(my_k)]
+
+inv_hess_22 <- solve(hess_22)
+
+
+
+theta_inv <- 1/coxme::VarCorr(coxme_fit)$M
+
+0.5 * (inner(b) * (theta_inv)^2 - sum(my_k * theta_inv) - sum(diag(inv_hess_22)))
+
+debugonce(theta_ipl_gr)
+
+theta_ipl_gr(one_theta = coxme::VarCorr(coxme_fit)$M,
+             parms = c(coxme::fixef(coxme_fit), coxme::ranef(coxme_fit)$M),
+             X = my_X,
+             stat_time = stat_time,
+             dij = stat,
+             cluster = "M",
+             data = ds)
+
+
+theta_ipl_gr(one_theta = my_theta,
+             parms = c(coxme::fixef(coxme_fit), coxme::ranef(coxme_fit)$M),
+             X = my_X,
+             stat_time = stat_time,
+             dij = stat,
+             cluster = "M",
+             data = ds)
+
+
 
 # library(coxme)
 

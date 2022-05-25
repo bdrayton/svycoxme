@@ -19,3 +19,6 @@ Algorithm iterates between estimating fixed and random effects for a given
 theta, and estimating theta given the current estimates fixed and random effects,
 until convergence is reached.
 }
+\details{
+returns the optim results, plus variance information for all estimated parameters
+}
