@@ -525,7 +525,7 @@ theta_ipl_gr <- function(one_theta, parms, X, stat_time, dij, cluster, data) {
             data = data,
             return_matrix = TRUE)
 
-  0.5 * (inner(b) * (theta_inv)^2 - sum(length(b)*theta_inv) - sum(diag(solve(kbb))))
+  0.5 * (inner(b) * (theta_inv)^2 - sum(length(b)*theta_inv) - sum(diag(solve(kbb) %*% D_inv %*% D_inv)))
 
 }
 
@@ -547,7 +547,8 @@ estimate_parameters <- function(start_theta,
                                 stat_time,
                                 cluster,
                                 dij,
-                                data) {
+                                data,
+                                theta_hessian = FALSE) {
 
   fit_beta_b <- optim(par = start_parms,
                       fn = lp,
@@ -563,7 +564,7 @@ estimate_parameters <- function(start_theta,
 
   fit_theta <- optim(par = c(start_theta),
                      fn = theta_ipl,
-                     gr = NULL,
+                     gr = theta_ipl_gr,
                      parms = fit_beta_b$par,
                      X = X,
                      stat_time = {{ stat_time }},
@@ -573,7 +574,8 @@ estimate_parameters <- function(start_theta,
                      method = "L-BFGS-B",
                      control = list(fnscale = -1),
                      lower = 0.00001,
-                     upper = 1000)
+                     upper = 1000,
+                     hessian = theta_hessian)
 
   # check convergence
   if(fit_beta_b$convergence != 0 | fit_theta$convergence != 0 ) stop("failed to converge")
@@ -582,6 +584,8 @@ estimate_parameters <- function(start_theta,
        new_beta_b = fit_beta_b$par)
 
 }
+
+
 
 
 #' estimate all parameters in a shared frailty model

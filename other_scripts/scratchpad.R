@@ -1,5 +1,5 @@
 my_beta = c(1, -0.7, 0.5)
-my_theta = 0.2
+my_theta = 1
 my_k = 10
 my_nk = 10
 my_X = c("X1", "X2", "X3")
@@ -22,6 +22,47 @@ test_loop <- estimate_parameters_loop(start_theta = 0.5,
 
 ests <- tail(test_loop$estimate_history, 1)[[1]]
 
+fit_theta <- optim(par = ests$new_theta,
+                   fn = theta_ipl,
+                   gr = theta_ipl_gr,
+                   parms = ests$new_beta_b,
+                   X = my_X,
+                   stat_time = stat_time,
+                   dij = stat,
+                   cluster = 'M',
+                   data = ds,
+                   method = "L-BFGS-B",
+                   control = list(fnscale = -1),
+                   lower = 0.00001,
+                   upper = 1000,
+                   hessian = TRUE)
+
+solve(-fit_theta$hessian)
+
+kbb <- bb(parms = ests$new_beta_b,
+          X = my_X,
+          stat_time = stat_time,
+          dij = stat,
+          theta = ests$new_theta,
+          cluster = "M",
+          data = ds,
+          return_matrix = TRUE)
+
+# closed form for theta
+(inner(ests$new_beta_b[-seq_along(my_X)]) - sum(diag(solve(kbb))))/my_k
+
+the <- ests$new_theta
+
+q <- my_k
+
+kbb_inv <- solve(kbb)
+
+# should i change the sign here too? need to check this expression
+the_var <- 2 * the^2 * (q + (1/the^2) * sum(diag(kbb_inv %*% kbb_inv)) - (2/the) * sum(diag(kbb_inv)))^(-1)
+
+
+
+
 theta_ipl_gr(one_theta = ests$new_theta,
              parms = ests$new_beta_b,
              X = my_X,
@@ -42,11 +83,7 @@ hess_22 <- hess[seq_len(my_k), seq_len(my_k)]
 
 inv_hess_22 <- solve(hess_22)
 
-
-
 theta_inv <- 1/coxme::VarCorr(coxme_fit)$M
-
-0.5 * (inner(b) * (theta_inv)^2 - sum(my_k * theta_inv) - sum(diag(inv_hess_22)))
 
 debugonce(theta_ipl_gr)
 
@@ -58,9 +95,8 @@ theta_ipl_gr(one_theta = coxme::VarCorr(coxme_fit)$M,
              cluster = "M",
              data = ds)
 
-
-theta_ipl_gr(one_theta = my_theta,
-             parms = c(coxme::fixef(coxme_fit), coxme::ranef(coxme_fit)$M),
+theta_ipl_gr(one_theta = ests$new_theta,
+             parms = ests$new_beta_b,
              X = my_X,
              stat_time = stat_time,
              dij = stat,

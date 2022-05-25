@@ -22,7 +22,7 @@ names(coxme_est_parms) <- parm_names
 my_loglik <- lp(parms = coxme_est_parms,
    X = my_X,
    cluster = "M",
-   t = stat_time,
+   stat_time = stat_time,
    dij = stat,
    theta = coxme_est_theta,
    data = ds)
@@ -37,7 +37,7 @@ fit$penalty - attr(my_loglik, "penalty")
 my_u <- lp_grd(parms = coxme_est_parms,
                X = c("X1", "X2", "X3"),
                cluster = "M",
-               t = stat_time,
+               stat_time = stat_time,
                dij = stat,
                theta = coxme_est_theta,
                data = ds)
@@ -70,7 +70,7 @@ dplyr::bind_cols(
 my_hessian <- svycoxme::ppl_hessian(parms = coxme_est_parms,
                                     X = c("X1", "X2", "X3"),
                                     cluster = "M",
-                                    t = t,
+                                    stat_time = stat_time,
                                     dij = stat,
                                     theta = coxme_est_theta,
                                     data = ds)
@@ -81,12 +81,9 @@ reordered_names <- colnames(my_hessian)[c(seq_len(my_k) + 3, 1:3)]
 
 reord_hessian <- my_hessian[reordered_names, reordered_names]
 
-<<<<<<< Updated upstream
 # decompose my hessian
-=======
 library(bdsmatrix)
 
->>>>>>> Stashed changes
 gchol_reord_hessian <- gchol(reord_hessian)
 
 gchol_my_hessian <- gchol(my_hessian)
@@ -110,11 +107,8 @@ back_trans_hmat <- L %*% diag(D) %*% t(L)
 
 back_trans_hmat - (-1 * reord_hessian)
 
-<<<<<<< Updated upstream
 # for the fixed effects, estimates are of the same (to almost machine error).
-=======
-# for the fixed effects, estimates are the same.
->>>>>>> Stashed changes
+
 vcov(fit)
 solve(-my_hessian)[1:3, 1:3]
 
