@@ -552,6 +552,59 @@ estimate_parameters <- function(start_theta,
 }
 
 
+#' estimate all parameters in a shared frailty model
+#'
+#' Algorithm iterates between estimating fixed and random effects for a given
+#' theta, and estimating theta given the current estimates fixed and random effects,
+#' until convergence is reached.
+#'
+#'
+#' @export
+
+estimate_parameters2 <- function(start_theta,
+                                start_parms,
+                                X,
+                                stat_time,
+                                cluster,
+                                dij,
+                                data) {
+
+  fit_beta_b <- optim(par = start_parms,
+                      fn = lp,
+                      gr = lp_grd,
+                      X = X,
+                      stat_time = {{ stat_time }},
+                      cluster = cluster,
+                      dij = {{ dij }},
+                      theta = start_theta,
+                      data = data,
+                      method = "BFGS",
+                      control = list(fnscale = -1))
+
+  fit_theta <- optim(par = c(start_theta),
+                     fn = theta_ipl,
+                     gr = NULL,
+                     parms = fit_beta_b$par,
+                     X = X,
+                     stat_time = {{ stat_time }},
+                     dij = {{ dij }},
+                     cluster = cluster,
+                     data = data,
+                     method = "L-BFGS-B",
+                     control = list(fnscale = -1),
+                     lower = 0.00001,
+                     upper = 1000,
+                     hessian = TRUE)
+
+  # check convergence
+  if(fit_beta_b$convergence != 0 | fit_theta$convergence != 0 ) stop("failed to converge")
+
+  list(new_theta = fit_theta,
+       new_beta_b = fit_beta_b)
+
+}
+
+
 #' loops estimate_parameters and est_theta until convergence or max iterations
 #' is reached.
 #'

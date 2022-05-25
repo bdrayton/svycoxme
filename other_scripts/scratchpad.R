@@ -15,13 +15,40 @@ fit0 <- survival::coxph(survival::Surv(stat_time, stat) ~ X1 + X2 + X3, data = d
 my_start_parameters <- c(coef(fit0), rep(0, my_k))
 names(my_start_parameters) <- c(my_X, paste0("Z", seq_len(my_k)))
 
-estimate_parameters(start_theta = 0.5,
+fit2 <- estimate_parameters2(start_theta = 0.5,
                     start_parms = my_start_parameters,
                     X = my_X,
                     stat_time = stat_time,
                     cluster = "M",
                     dij = stat,
                     data = ds)
+
+coxme_fit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1|M), data = ds)
+
+theta_est <- coxme::VarCorr(coxme_fit)$M
+b_est <- coxme::ranef(coxme_fit)$M
+
+library(bdsmatrix)
+
+L <- as.matrix(coxme_fit$hmat)
+D <- diag(coxme_fit$hmat)
+
+hess <- L %*% diag(D) %*% t(L)
+
+hess_22 <- hess[1:50, 1:50]
+
+inv_hess_22 <- solve(hess_22)
+
+var_theta <- 2 * theta_est^2 * (length(b_est) + sum(diag(inv_hess_22 %*% inv_hess_22)) -
+                     (2/theta_est) * sum(diag(inv_hess_22)))^(-1)
+
+theta_est + c(-1.96, 1.96) * var_theta
+
+
+
+
+
+
 
 
 test_loop <- estimate_parameters_loop(start_theta = 0.5,

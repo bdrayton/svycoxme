@@ -6,15 +6,15 @@
 is reached.}
 \usage{
 estimate_parameters_loop(
-  beta,
-  theta,
-  k,
-  nk,
-  cluster = "M",
+  start_theta,
+  start_parms,
+  X,
+  stat_time,
+  cluster,
+  dij,
+  data,
   max_iter = 100,
-  convergence_threshold = 1e-05,
-  start_theta = 4,
-  X = c("X1", "X2", "X3")
+  convergence_threshold = 1e-05
 )
 }
 \description{
