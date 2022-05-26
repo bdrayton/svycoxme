@@ -105,7 +105,7 @@ D <- diag(fit$hmat)
 
 back_trans_hmat <- L %*% diag(D) %*% t(L)
 
-back_trans_hmat - (-1 * reord_hessian)
+max(back_trans_hmat - (-1 * reord_hessian))
 
 # for the fixed effects, estimates are of the same (to almost machine error).
 
@@ -122,6 +122,41 @@ cbind(
 # than machine error.
 hmat_inv <- solve(fit$hmat, full = TRUE)
 all.equal(fit$variance, hmat_inv)
+
+
+# some calculations require the random effects part of the hessian, so
+# I need to be able to recover that part.
+
+# this is the back-transformed hmat. If I invert the negative of this matrix,
+# and then take the cells relating to the random effects, the diag should be their variance.
+#
+
+solve(-back_trans_hmat)[seq_len(my_k), seq_len(my_k)]
+
+# can I do this with my hessian? Yes, e rua, e rua, aside from the signs.
+h22_a <- solve(-my_hessian)[-seq_along(my_X), -seq_along(my_X)]
+
+# what happens if you subset then invert?
+h22_b <- solve(-my_hessian[-seq_along(my_X), -seq_along(my_X)])
+
+sum(diag(h22_a))
+sum(diag(h22_b))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

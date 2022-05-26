@@ -18,7 +18,7 @@ test_loop <- estimate_parameters_loop(start_theta = 0.5,
                                       stat_time = stat_time,
                                       cluster = "M",
                                       dij = stat,
-                                      data = ds, max_iter = 200)
+                                      data = ds)
 
 ests <- tail(test_loop$estimate_history, 1)[[1]]
 
@@ -48,17 +48,29 @@ kbb <- bb(parms = ests$new_beta_b,
           data = ds,
           return_matrix = TRUE)
 
+q <- nrow(kbb)
+kbb_inv <- solve(kbb)
+
 # closed form for theta
-(inner(ests$new_beta_b[-seq_along(my_X)]) - sum(diag(solve(kbb))))/my_k
+(inner(ests$new_beta_b[-seq_along(my_X)]) - sum(diag(kbb_inv)))/q
 
 the <- ests$new_theta
 
-q <- my_k
-
-kbb_inv <- solve(kbb)
-
 # should i change the sign here too? need to check this expression
-the_var <- 2 * the^2 * (q + (1/the^2) * sum(diag(kbb_inv %*% kbb_inv)) - (2/the) * sum(diag(kbb_inv)))^(-1)
+the_var <- 2 * the^2 * (q + (1/the^2) * sum(diag(kbb_inv %*% kbb_inv)) - (2/the) * sum(diag(kbb_inv)))^-1
+
+# All three variances are different. what I want to do is
+
+
+
+
+
+D_inv <- solve(the * diag(q))
+
+I <- 0.5 * (sum(diag( D_inv %*% D_inv + D_inv )) +
+            sum(diag( kbb_inv %*% D_inv %*% D_inv %*% kbb_inv %*% D_inv %*% D_inv - 2 * kbb_inv %*% D_inv %*% D_inv %*% D_inv )))
+
+I^-1
 
 
 

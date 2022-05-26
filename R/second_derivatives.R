@@ -43,7 +43,7 @@ add_Z <- function(data, cluster){
 
 
 
-BB <- function(parms, X, stat_time, cluster, dij, data){
+BB <- function(parms, X, stat_time, cluster, dij, data, return_matrix = FALSE){
 
   data_with_Z <- add_Z(data = data, cluster = cluster)
 
@@ -81,7 +81,15 @@ BB <- function(parms, X, stat_time, cluster, dij, data){
     ) %>%
     dplyr::summarise(ll = sum(ll_parts), .groups = "drop")
 
-  ll
+  if(!return_matrix) {
+    return(ll)
+  } else {
+
+    ll %>% tidyr::pivot_wider(names_from = "Xs", values_from = "ll") %>%
+      tibble::column_to_rownames("Xr") %>%
+      as.matrix()
+
+  }
 
 }
 
