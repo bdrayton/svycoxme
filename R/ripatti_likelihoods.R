@@ -706,7 +706,8 @@ estimate_parameters_loop <- function(start_theta,
 
   list(
     estimate_history = estimate_history,
-    converged = converged)
+    converged = converged,
+    iterations = i)
 
 }
 
