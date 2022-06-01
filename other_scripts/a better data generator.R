@@ -7,10 +7,11 @@ my_nk = 11
 
 my_X = c("X1", "X2", "X3")
 
-ds <- one_dataset(list(k = my_k, nk = my_nk, beta = my_beta, theta = my_theta)) %>%
+ds <- svycoxme::one_dataset(list(k = my_k, nk = my_nk, beta = my_beta, theta = my_theta)) %>%
       dplyr::mutate(M2 = rep(c("l", "r"), ceiling(nrow(.)/2))[seq_len(my_k * my_nk)])
 
 
+debugonce(coxme::coxme)
 fit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1|M) + (1|M2), data = ds)
 
 coxme::VarCorr(fit)
@@ -51,42 +52,52 @@ one_dataset
 #'
 #'
 
-one_dataset <- function(control, dists){
+one_dataset <- function(formula, dists, dist_args){
 
-  vars <- lapply(dists, eval_one, control = control)
+  # decompose formula and check against names in dists.
+
+
+  vars <- lapply(dists, lazyeval::f_eval, data = dist_args)
 
   data.frame(vars)
 
 }
 
-eval_one <- function(one_expression, control){
-
-  eval(one_expression)
-
-}
-
-
-ds <- one_dataset(dists = list(X1 = expression(rnorm(control$n, 0, 1)),
-                               X2 = expression(rep(rnorm(control$k, 0, 1), each = control$nk)),
-                               X3 = expression(rep(rep(c(1, 0), ceiling(control$k/2))[seq_len(control$k)], each = control$nk)),
-                               M1 = expression(rep(1:control$k, each = control$nk)),
-                               M2 = expression(rep(c("l", "r"), ceiling(control$n/2))[seq_len(control$k * control$nk)])),
-                  control = list(k = 10, nk = 10, n = 100))
+ds <- one_dataset(dists = list(X1 = ~rnorm(n, 0, 1),
+                               X2 = ~rep(rnorm(k, 0, 1), each = nk),
+                               X3 = ~rep(rep(c(1, 0), ceiling(k/2))[seq_len(k)], each = nk),
+                               M1 = ~rep(1:k, each = nk),
+                               M2 = ~rep(c("l", "r"), ceiling(n/2))[seq_len(n)]),
+                  dist_args = list(k = 10, nk = 10, n = 100))
 
 ds
 
-
-test_formula <- formula("Y ~ X1 + X2 + X3 + (1|M)")
+test_formula <- formula("Y ~ X1 + X2 + X3 + (1|M/M2)")
 
 lme4:::subbars(test_formula)
 
 lme4:::getFixedFormula(test_formula)
+
+lme4:::findbars
+
+coxme:::expand.nested(coxme:::formula1(test_formula)$random[[1]])
+
+coxme:::findIntercept
+
+coxme:::formula1(test_formula)
+
+coxme:::formula2(test_formula)
+
+
 lme4:::getCovariateFormula(test_formula)
+
 
 fr.form <- lme4:::subbars(test_formula)
 environment(fr.form) <- environment(test_formula)
 
 mf$formula <- fr.form
+
+lme4::lFormula(test_formula)
 
 fr <- eval(mf, parent.frame())
 
@@ -94,12 +105,27 @@ fr <- factorize(fr.form, fr, char.only = TRUE)
 attr(fr, "formula") <- formula
 
 n <- nrow(fr)
-reTrms <- mkReTrms(findbars(RHSForm(formula)), fr)
+reTrms <- mkReTrms(lme4:::findbars(lme4:::RHSForm(test_formula)), fr)
 
 lme4::mkReTrms(lme4:::findbars(lme4:::RHSForm(test_formula)), fr)
 
 findbars(test_formula)
 
+lme4:::reOnly(test_formula)
+
+
+my_fun <- function(k, stuff_using_k){
+
+  lazyeval::f_eval(stuff_using_k, data = list(k = k))
+
+}
+
+my_fun(k = 10, stuff_using_k = ~rnorm(n = k))
+
+
+f <- ~rnorm(n = k)
+
+lazyeval::f_eval(f)
 
 
 
