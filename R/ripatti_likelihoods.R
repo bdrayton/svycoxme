@@ -1,6 +1,3 @@
-
-
-
 #' sort and index data
 #'
 #' Sorts data by one or more variables, and adds an index to the sorted tibble
@@ -18,7 +15,6 @@ sortAndIndex <- function(data, sort_vars, index = "index") {
     dplyr::arrange(dplyr::across({{ sort_vars }})) %>%
     dplyr::mutate({{ index }} := dplyr::row_number(), .before = everything())
 }
-
 
 #' calculate (XB + Zb) and exp(XB + Zb)
 #'
@@ -62,45 +58,46 @@ calcLinearPredictor <- function(data, X, Z, parms) {
 
 
 
+# Superseded. See data_generator.R
 
-#' create a dataset for testing cox model stuff.
+#' #' create a dataset for testing cox model stuff.
+#' #'
+#' #' takes three fixed effects and one parameter, theta, that represents
+#' #' the variance of random effects drawn from a normal distribution.
+#' #'
 #'
-#' takes three fixed effects and one parameter, theta, that represents
-#' the variance of random effects drawn from a normal distribution.
-#' @export
-
-
-one_dataset <- function(control) {
-
-  n = control$k*control$nk
-
-  M = rep(1:control$k, each = control$nk)
-
-  X1 = rnorm(n, 0, 1)
-  X2 = rep(rnorm(control$k, 0, 1), each = control$nk)
-
-  # cluster level binary treatment allocation
-  X3 = rep(rep(c(1, 0), ceiling(control$k/2))[1:control$k], each = control$nk)
-
-  X = cbind(X1, X2, X3)
-
-  b = rnorm(control$k, 0, sqrt(control$theta))
-
-  b_rep = rep(b, each = control$nk)
-
-  error = rexp(n, 10)
-
-  stat_time = exp(-X%*%control$beta - b_rep) * error
-
-  stat = sample(rep(c(0, 1), round(n*c(0.2, 0.8))), n)
-
-  dataset = data.frame(X, stat_time, stat, M)
-
-  attr(dataset, "random_effects") <- b
-
-  dataset
-
-}
+#'
+#' one_dataset <- function(control) {
+#'
+#'   n = control$k*control$nk
+#'
+#'   M = rep(1:control$k, each = control$nk)
+#'
+#'   X1 = rnorm(n, 0, 1)
+#'   X2 = rep(rnorm(control$k, 0, 1), each = control$nk)
+#'
+#'   # cluster level binary treatment allocation
+#'   X3 = rep(rep(c(1, 0), ceiling(control$k/2))[1:control$k], each = control$nk)
+#'
+#'   X = cbind(X1, X2, X3)
+#'
+#'   b = rnorm(control$k, 0, sqrt(control$theta))
+#'
+#'   b_rep = rep(b, each = control$nk)
+#'
+#'   error = rexp(n, 10)
+#'
+#'   stat_time = exp(-X%*%control$beta - b_rep) * error
+#'
+#'   stat = sample(rep(c(0, 1), round(n*c(0.2, 0.8))), n)
+#'
+#'   dataset = data.frame(X, stat_time, stat, M)
+#'
+#'   attr(dataset, "random_effects") <- b
+#'
+#'   dataset
+#'
+#' }
 
 
 #' calculate sum exp(XB + Zb) for each failure time. The are the sums of linear predictors for

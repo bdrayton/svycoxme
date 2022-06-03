@@ -4,7 +4,16 @@
 \alias{estimate_parameters}
 \title{estimate all parameters in a shared frailty model}
 \usage{
-estimate_parameters(start_theta, start_parms, X, stat_time, cluster, dij, data)
+estimate_parameters(
+  start_theta,
+  start_parms,
+  X,
+  stat_time,
+  cluster,
+  dij,
+  data,
+  theta_hessian = FALSE
+)
 }
 \description{
 Algorithm iterates between estimating fixed and random effects for a given

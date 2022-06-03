@@ -1,5 +1,4 @@
 
-
 my_beta = c(1, -0.7, 0.5)
 my_theta = 1
 my_k = 11
@@ -123,15 +122,15 @@ one_dataset <- function(formula, dists, dist_args, coefficients, random_effects_
 
   vars_df$stat_time <- exp(-risk_score) * error
 
-  vars_df$stat <- lazyeval::f_eval(dists$error, data = dist_args)
+  vars_df$stat <- lazyeval::f_eval(dists$stat, data = dist_args)
 
   vars_df
 
 }
 
-debugonce(one_dataset)
+# debugonce(one_dataset)
 
-ds <- one_dataset(formula = survival::Surv(stat_time, time) ~ X1 + X2 + X3 + (1 | M1),
+ds <- one_dataset(formula = survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1),
                   dists = list(X1 = ~rnorm(n, 0, 1),
                                X2 = ~rep(rnorm(k, 0, 1), each = nk),
                                X3 = ~rep(rep(c(1, 0), ceiling(k/2))[seq_len(k)], each = nk),
@@ -142,5 +141,9 @@ ds <- one_dataset(formula = survival::Surv(stat_time, time) ~ X1 + X2 + X3 + (1 
                   dist_args = list(k = 50, nk = 4, n = 50*4),
                   random_effects_variance = list(M1 = 1, M2 = 2),
                   coefficients = c(1, -0.7, 0.5))
+
+
+
+
 
 
