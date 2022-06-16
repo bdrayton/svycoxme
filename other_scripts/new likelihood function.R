@@ -233,7 +233,7 @@ microbenchmark::microbenchmark(
                       control = list(fnscale = -1)),
   new_fit_beta_b <- optim(par = my_start_parameters,
                           fn = new_lp,
-                          gr = NULL,
+                          gr = lp_gr,
                           formula = survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1),
                           data = ds,
                           theta = theta,
@@ -244,6 +244,16 @@ microbenchmark::microbenchmark(
 cbind(
   fit_beta_b$par,
   new_fit_beta_b$par)
+
+new_fit_beta_b <- optim(par = my_start_parameters,
+                        fn = new_lp,
+                        gr = lp_gr,
+                        formula = survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1),
+                        data = ds,
+                        theta = theta,
+                        method = "BFGS",
+                        control = list(fnscale = -1))
+
 
 
 ##### Look at other random effects structures. does it work? compare to coxme.
