@@ -2,11 +2,8 @@
 % Please edit documentation in R/ripatti_likelihoods.R
 \name{calcRiskSets}
 \alias{calcRiskSets}
-\title{#' create a dataset for testing cox model stuff.
-#'
-#' takes three fixed effects and one parameter, theta, that represents
-#' the variance of random effects drawn from a normal distribution.
-#'}
+\title{calculate sum exp(XB + Zb) for each failure time. The are the sums of linear predictors for
+the risk set at each failure time. Also multiplies these sets by X or Z or whatever when this is needed.}
 \usage{
 calcRiskSets(data, vars = NULL, varCol = NULL, A = A, index = index)
 }
@@ -27,17 +24,6 @@ additional column cumsum_A which is the cumulative sum of A, taken from the bott
 to the idea of risk sets.
 }
 \description{
-
+calculate sum exp(XB + Zb) for each failure time. The are the sums of linear predictors for
+the risk set at each failure time. Also multiplies these sets by X or Z or whatever when this is needed.
 }
-\details{
-n = control$k*control$nk
-
-M = rep(1:control$k, each = control$nk)
-
-X1 = rnorm(n, 0, 1)
-X2 = rep(rnorm(control$k, 0, 1), each = control$nk)
-}
-\section{cluster level binary treatment allocation}{
-
-}
-

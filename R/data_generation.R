@@ -67,6 +67,11 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
   if(length(fixed_term_labels) > length(coefficients))
     stop("Each fixed effect in the formula must have a corresponding coefficient")
 
+  all_dists_are_formula <- all(sapply(dists, class) == "formula")
+
+  if(!all_dists_are_formula)
+    stop("All terms in dists must be left hand formulas e.g. ~rnorm(n)")
+
   random_term_labels <- sapply(flist$random, get_group_label, simplify = "vector")
   # naming the random terms means the results from sapply will inherit the names.
   names(random_term_labels) <- random_term_labels
