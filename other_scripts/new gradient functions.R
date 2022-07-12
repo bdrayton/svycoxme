@@ -1,5 +1,19 @@
 
+fast_risk_sets <- function(a_matrix){
 
+  # flip it
+  rev_index <- rev(seq_len(nrow(a_matrix)))
+  m <- a_matrix[rev_index, ]
+
+  # cumsums
+  m <- matrixStats::colCumsums(as.matrix(m))
+
+  # flip it back
+  m <- m[rev_index,]
+
+  # restore class
+  Matrix(m)
+}
 
 lp_gr_beta <- function(params, formula, data, theta) {
 
@@ -23,11 +37,15 @@ lp_gr_beta <- function(params, formula, data, theta) {
 
   exp_risk_score_X <- exp_risk_score * parsed_data$X[,-1]
 
-  at_risk_list <- apply(exp_risk_score_X, 2, function(column){
-    Matrix(rev(cumsum(rev(column))), ncol = 1)
-  })
+  ## I replaced this with fast_risk_sets, which is faster when there are lots of columns. Else it's about the same.
+  #
+  # at_risk_list <- apply(exp_risk_score_X, 2, function(column){
+  #   Matrix(rev(cumsum(rev(column))), ncol = 1)
+  # })
+  #
+  # at_risk_X <- Reduce(cbind, at_risk_list)
 
-  at_risk_X <- Reduce(cbind, at_risk_list)
+  at_risk_X <- fast_risk_sets(exp_risk_score_X)
 
   stat <- Matrix(ds_sorted$stat, ncol = 1)
 
@@ -37,6 +55,7 @@ lp_gr_beta <- function(params, formula, data, theta) {
 
 }
 
+
 ds <- one_dataset(~X1 + X2 + X3 + (1 | M1),
                   dists = list(X1 = ~rnorm(n),
                                X2 = ~rnorm(k * nk),
@@ -44,13 +63,13 @@ ds <- one_dataset(~X1 + X2 + X3 + (1 | M1),
                                M1 = ~rep(1:k, each = nk),
                                error = ~rexp(n, 10),
                                stat = ~sample(rep(c(0, 1), round(n * c(0.2, 0.8))), n)),
-                  dist_args = list(k = 10, nk = 4, n = 200),
+                  dist_args = list(k = 50, nk = 100, n = 50*100),
                   coefficients = c(1, 1, 1),
                   random_effect_variance = list(M1 = 0.5)
 )
 
 beta = c(1, 1, 1)
-b <- c(rnorm(10, mean = 0, sd = 1))
+b <- c(rnorm(50, mean = 0, sd = 1))
 theta <- 1
 
 microbenchmark::microbenchmark(
@@ -60,11 +79,10 @@ dlp_beta(parms = c(beta, b),
          dij = stat,
          theta = theta,
          cluster = "M1", data = ds),
-lp_gr_beta(params = c(beta, b), survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1), data = ds, theta = theta)
+lp_gr_beta(params = c(beta, b), survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1), data = ds, theta = theta),
+lp_gr_beta2(params = c(beta, b), survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1), data = ds, theta = theta),
+times = 100
 )
-
-
-solve(parsed_data$reTrms$Lambdat) %*% b
 
 
 lp_gr_b <- function(params, formula, data, theta) {
@@ -91,15 +109,19 @@ lp_gr_b <- function(params, formula, data, theta) {
 
   exp_risk_score_Z <- Matrix(rep(exp_risk_score, bl), ncol = bl) * t(parsed_data$reTrms$Zt)
 
-  at_risk_list <- apply(exp_risk_score_Z, 2, function(column){
-    Matrix(rev(cumsum(rev(column))), ncol = 1)
-  })
+  # at_risk_list <- apply(exp_risk_score_Z, 2, function(column){
+  #   Matrix(rev(cumsum(rev(column))), ncol = 1)
+  # })
+  #
+  # at_risk_Z <- Reduce(cbind, at_risk_list)
 
-  at_risk_Z <- Reduce(cbind, at_risk_list)
+  at_risk_Z <- fast_risk_sets(exp_risk_score_Z)
 
   stat <- Matrix(ds_sorted$stat, ncol = 1)
 
   likelihood_gradients_unpenalised <- colSums(stat * (t(parsed_data$reTrms$Zt) - at_risk_Z/at_risk))
+
+  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
 
   penalty <- t(b) %*% solve(parsed_data$reTrms$Lambdat)
 
@@ -120,6 +142,7 @@ dlp_b(parms = my_params,
          D = theta * diag(10),
          cluster = "M1", data = ds)
 
+
 lp_gr_b(params = c(beta, b),
         survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1),
         data = ds, theta = theta)
@@ -130,12 +153,13 @@ dlp_b(parms = my_params,
       stat_time = stat_time,
       dij = stat,
       theta = theta,
-      D = theta * diag(10),
+      D = theta * diag(50),
       cluster = "M1", data = ds)
 ,
 lp_gr_b(params = c(beta, b),
         survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1),
         data = ds, theta = theta)
+
 )
 
 

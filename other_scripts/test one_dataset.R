@@ -1,6 +1,7 @@
 # test one_dataset
 
 # test with three fixed and one random effects
+debugonce(one_dataset)
 one_dataset(~X1 + X2 + X3 + (1 | M),
             dists = list(X1 = ~rnorm(n),
                          X2 = ~rnorm(k * nk),

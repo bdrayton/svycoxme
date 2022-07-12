@@ -1,0 +1,63 @@
+---
+title: "Notes about formula parsing in lme4::lFormula"
+author: "BAD"
+date: '2022-06-20'
+output: html_document
+---
+
+# how does lFormula find random effects? These end up in reTrms as the names in flist and cnms
+# how are the flist generated?
+# how are the cnms terms generated?
+
+checkFormulaData gets called
+  denv <- checkFormulaData(formula, data, checkLHS = control$check.formula.LHS == 
+    "stop")
+
+Then this for the right hand side.
+  RHSForm(formula) <- expandDoubleVerts(RHSForm(formula))
+
+  fr.form <- subbars(formula)
+  fr <- factorize(fr.form, fr, char.only = TRUE)
+  
+This is surely critical 
+    reTrms <- mkReTrms(findbars(RHSForm(formula)), fr)
+
+
+mkReTrms takes the results of findbars(RHSForm(formula)), and the model frame from
+the call to lFormula.
+
+The result of bars <- findbars(RHSForm(formula)) is
+[[1]]
+1 | M1
+
+[[2]]
+1 | M1:M2
+
+The names are extracted with barnames(bars)
+[1] "M1"    "M1:M2"
+
+mkBlist is called for each bars term using lapply. This function does the work
+of constructing the matricies, cnms, flist (called blist$M1$ff, and blist$`M1:M2`$ff
+
+blist components are extracted, rearranged, and used to dervive everything in reTerms.
+
+
+look at mkBlist
+
+passed x = 1 | M1, frloc = model.frame from the call to lFormula.
+
+factorize is used on the entire model.frame. It tries to convert to factor any
+variables in model.frame that are not factors.
+
+M1 is extracted from 1 | M1
+
+# try to convert M1 into a factor.
+  ff <- try(eval(substitute(makeFac(fac), list(fac = ff0)), 
+    frloc), silent = TRUE)
+
+
+
+
+
+
+      
