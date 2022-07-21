@@ -9,6 +9,8 @@
 #' @export
 #'
 #' @importFrom rlang :=
+#' @importFrom magrittr %>%
+#' @import Matrix
 
 sortAndIndex <- function(data, sort_vars, index = "index") {
   data %>%
@@ -16,94 +18,17 @@ sortAndIndex <- function(data, sort_vars, index = "index") {
     dplyr::mutate({{ index }} := dplyr::row_number(), .before = everything())
 }
 
-#' calculate (XB + Zb) and exp(XB + Zb)
+
+
+## Generic methods
+
+#' paritial likelhoods
 #'
-#' @param data a tibble containing X, Z. It can have other columns too.
-#' @param X character vector of X columns, i.e. fixed-effect covariates
-#' @param Z character vector of Z columns, i.e. random-effect covariates. Currently this is a set of indicator variables describing cluster membership
-#' @param parms vector of fixed and random effects of length ncol(data[X]) + ncol(data[Z])
+#' The specific method called depends on the class of the parsed data. At time of writing,
+#' I have only implemented the penalised partial likelihood in Ripatti 2000. Next will be
+#' the 'full' partial likelihood, that is not dropping the part that they drop.
 #'
-#' @returns The tibble given to \code{data} is returned with two additional columns. lp contains (XB + Zb) and A contains exp(XB + Zb)
-#'
-#' @importFrom magrittr %>%
-#'
-
-
-calcLinearPredictor <- function(data, X, Z, parms) {
-  tempCols <- glue::glue("p{c(X, Z)}")
-
-  long_data <- data %>%
-    dplyr::select(index, all_of(X), all_of(Z)) %>%
-    tidyr::pivot_longer(cols = c(all_of(X), all_of(Z)))
-
-  wide_data <- long_data %>%
-    dplyr::mutate(
-      effects = rep(dplyr::all_of(parms), nrow(data)),
-      partial_linear_pred = value * effects
-    ) %>%
-    dplyr::select(index, name, partial_linear_pred) %>%
-    tidyr::pivot_wider(
-      values_from = partial_linear_pred, names_from = name,
-      names_prefix = "p"
-    )
-
-  dplyr::inner_join(data, wide_data, by = "index") %>%
-    dplyr::mutate(
-      lp = rowSums(dplyr::select(., dplyr::all_of(tempCols))),
-      A = exp(lp)
-    ) %>%
-    dplyr::select(-dplyr::all_of(tempCols))
-}
-
-
-
-#' calculate sum exp(XB + Zb) for each failure time. The are the sums of linear predictors for
-#' the risk set at each failure time. Also multiplies these sets by X or Z or whatever when this is needed.
-#'
-#' @param data tibble containing all the data.
-#' @param vars names of variable to multiply the risk set by. These variables will be pivoted longer. defaults to NULL.
-#' @param varCol name to the product of vars and A.
-#' @param A exponentiated linear predictor. i.e. exp(XB + Zb)
-#' @param index numerical index for event times.
-#'
-#' @returns Returns the tibble provided in data. If vars = NULL, the data will have the same number of rows, and an
-#' additional column cumsum_A which is the cumulative sum of A, taken from the bottom of the data up. This is related
-#' to the idea of risk sets.
-#'
-
-calcRiskSets <- function(data, vars = NULL, varCol = NULL, A = A, index = index) {
-  if (is.null(vars)) {
-    data %>%
-      dplyr::arrange(dplyr::desc({{ index }})) %>%
-      dplyr::mutate(cumsum_A = cumsum(A)) %>%
-      dplyr::arrange({{ index }})
-  } else {
-    varColName <- rlang::sym(varCol)
-
-    long_data <- data %>%
-      tidyr::pivot_longer(cols = dplyr::all_of(vars), names_to = {{ varCol }}) %>%
-      dplyr::mutate(
-        A =  {{ A }},
-        "{{varColName}}_A" := A * value,
-        "{{varColName}}" := forcats::as_factor(!!varColName)
-      )
-
-    long_data %>%
-      dplyr::arrange(dplyr::desc({{ index }})) %>%
-      dplyr::group_by(!!varColName) %>%
-      dplyr::mutate(
-        cumsum_A = cumsum(A),
-        "cumsum_{{varColName}}_A" := cumsum(!!rlang::sym(glue::glue("{varCol}_A"))),
-        cumsum_A_squared = cumsum_A^2
-      ) %>%
-      dplyr::arrange(index)
-  }
-}
-
-
-#' penalised partial likelihood in Ripatti 2000
-#'
-#' returns the PPL proposed by Ripatti and Palmgren
+#' params are incorrect, but I will update later, when documentation is a higher priority.
 #'
 #' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
 #' @param X character vector containing names of X columns in data.
@@ -113,307 +38,231 @@ calcRiskSets <- function(data, vars = NULL, varCol = NULL, A = A, index = index)
 #' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
 #' @param data tibble with all these columns
 #'
+#' @rdname lp
 #' @export
 
-lp <- function(parms, X, stat_time, dij, theta, cluster, data, ...) {
-
-  data_with_Z <- add_Z(data, cluster)
-  sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ stat_time }})
-
-  b <- parms[-seq_along(X)]
-
-  D = theta * diag(length(b))
-
-  # penalty = c(0.5 * t(b)%*%solve(D)%*%b)
-  penalty = 0.5 * inner(a = b) * 1/theta
-
-  terms1 <- calcLinearPredictor(sortedIndexedData, X = X, Z = attr(data_with_Z, "Z_names"), parms = parms)
-
-  terms2 <- calcRiskSets(terms1)
-
-  ll <- terms2 %>%
-    dplyr::mutate(li =  {{ dij }} * (lp - log(cumsum_A))) %>%
-    dplyr::summarise(ll = sum(li)) %>%
-    dplyr::pull(ll)
-
-  ppl <- ll - penalty
-
-  attr(ppl, "penalty") <- penalty
-
-  ppl
-
+lp <- function(params, formula, parsed_data, other_args){
+  UseMethod("lp", parsed_data)
 }
 
-minuslp <- function(parms, X, stat_time, dij, D, data, ...) {
-  -1 * lp(
-    parms = parms, X = X, stat_time = {{ stat_time }},
-    dij = {{ dij }}, D = D, data = data, ... = ...
-  )
-}
+#' lp.ppl
+#' @export
+#' @rdname lp
 
+lp.ppl <- function(params, formula, parsed_data, other_args) {
 
-
-#' helper for calcCrossProducts
-#'
-#' takes a tibble and selects everything in the character vector f, as well
-#' an index variable from sortAndIndex. pivots everything in f to long format,
-#' and converts the 'name' column to a factor. Levels are determined by order they appear in the data.
-#'
-#' @param data A tibble containing an index column called index, and all columns named in f
-#' @param f character vector of columns to make longer.
-#'
-
-makeLong <- function(data, f) {
-  data %>%
-    dplyr::select(index, all_of(f)) %>%
-    tidyr::pivot_longer(cols = -1) %>%
-    dplyr::mutate(name = forcats::as_factor(name))
-}
-
-#' Get the cross products
-#'
-#' Calculate cross products for a set of numeric variables.
-#'
-#' @param data a tibble containing the numeric variables to cross multiply
-#' @param f1 first set of variables.
-#' @param f2 second set of variables (can be the same variables as in f1)
-#' @param n1 name for the first set of variables
-#' @param n2 name for the second set of variables.
-#'
-
-calcCrossProducts <- function(data, f1, f2, n1, n2) {
-
-  if(missing(f2)) f2 <- f1
-
-  l1 <- makeLong(data, f1)
-
-  l2 <- makeLong(data, f2)
-
-  dplyr::full_join(l1, l2, by = "index") %>%
-    dplyr::mutate("{n1}{n2}" := value.x * value.y) %>%
-    dplyr::select(
-      index, "{n1}" := name.x, "{n2}" := name.y,
-      !!rlang::sym(glue::glue("{n1}{n2}"))
-    )
-}
-
-
-
-
-
-#' partial derivative with respect to the fixed effects, \eqn{\beta}.
-#'
-#' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
-#' @param X character vector containing names of X columns in data.
-#' @param cluster charter vector with column name containing cluster membership
-#' @param t column in data with time of failure/censoring data.
-#' @param dij column in data indicating if observation was censored or a failure.
-#' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
-#' @param data tibble with all these columns
-
-
-dlp_beta <- function(parms, X, cluster, stat_time, dij, data, ...) {
-
-
-#   Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
-#
-#   Z_matrix <- model.matrix(Z_formula, data = data)
-#
-#   colnames(Z_matrix) <- paste0("Z", seq(ncol(Z_matrix)))
-
-  data_with_Z <- add_Z(data, cluster)
-
-  Z_names <- attr(data_with_Z, "Z_names")
-
-  b <- parms[-seq_len(length.out = length(X))]
-
-  B <- parms[seq_len(length.out = length(X))]
-
-  sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ stat_time }})
-
-  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
-
-  addedCumsums <- calcRiskSets(addedLP, X, "Xr")
-
-  ll <- addedCumsums %>%
-    dplyr::mutate(li =  {{ dij }} * (value - cumsum_Xr_A / cumsum_A)) %>%
-    dplyr::summarise(ll = sum(li), .groups = "drop")
-
-  ll
-
-}
-
-#' partial derivative with respect to the random effects, b.
-#'
-#' @param parms numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.
-#' @param X character vector containing names of X columns in data.
-#' @param cluster charter vector with column name containing cluster membership
-#' @param t column in data with time of failure/censoring data.
-#' @param dij column in data indicating if observation was censored or a failure.
-#' @param D diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.
-#' @param data tibble with all these columns
-
-
-dlp_b <- function(parms, X, cluster, stat_time, dij, D, data, ...) {
-
-  # Z_formula <- formula(glue::glue(" ~ as.factor( {cluster} ) - 1"))
+  # These steps are moved to improve performance of optim.
+  # # This sort var could be pulled out of the formula.
+  # ds_sorted <- sortAndIndex(data, sort_vars = stat_time)
   #
-  # Z_matrix <- model.matrix(Z_formula, data = data)
-  #
-  # Z_colnames <- paste0("Z", seq(ncol(Z_matrix)))
-  #
-  # colnames(Z_matrix) <- Z_colnames
-  #
-  # data_with_Z <- dplyr::bind_cols(data, data.frame(Z_matrix))
+  # parsed_data <- lme4::lFormula(formula, data = ds_sorted)
 
-  data_with_Z <- add_Z(data, cluster)
+  beta_index <- seq_len(ncol(parsed_data$X) - 1)
 
-  Z_names <- attr(data_with_Z, "Z_names")
+  beta <- params[beta_index]
+  b <- params[-beta_index]
 
-  sortedIndexedData <- sortAndIndex(data_with_Z, sort_vars = {{ stat_time }})
+  # drop the intercept column from the X model.matrix
+  risk_score <- parsed_data$X[, -1] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
 
-  b <- parms[-seq_len(length.out = length(X))]
+  exp_risk_score <- exp(risk_score)
 
-  B <- parms[seq_len(length.out = length(X))]
+  # calculate risk sets
+  # I do it this way to preserve the class and other slots. rev(risk_score) coerces to a numeric vector.
+  # probably no point, as cumsum convert it anyway, and I need to remake the matrix with Matrix.
+  rev_exp_risk_score <- exp_risk_score
+  rev_exp_risk_score@x <- rev(exp_risk_score@x)
 
-  # The penalties need names so they can be matched later. The order of the data
-  # isn't guaranteed to be what you expect after this, so best to just match on
-  # name.
+  at_risk <- Matrix::Matrix(rev(cumsum(rev_exp_risk_score)), ncol = 1)
 
-  penalty <- data.frame(Zi = Z_names, penalty = (solve(D) %*% b[Z_names]))
+  # would be good to peel stat out of the Surv() object in the parsed formula.
+  # This is awkward because Surv() doesn't preserve the variable names, so I may
+  # need to parse the formula myself, and including consideration of the "type"
+  # attribute from the evaluated call. This has sort of been resolved.
 
-  addedLP <- calcLinearPredictor(sortedIndexedData, X = X, Z = Z_names, parms = parms)
+  # this is passed in via other args now
+  # stat <- Matrix::Matrix(ds_sorted$stat, ncol = 1)
 
-  addedCumSums <- calcRiskSets(addedLP, vars = Z_names, varCol = "Zi")
+  # penalty
 
-  ll_unpenalized <- addedCumSums %>%
-    dplyr::mutate(li =  {{ dij }} * (value - cumsum_Zi_A / cumsum_A)) %>%
-    dplyr::summarise(ll = sum(li), .groups = "drop")
+  parsed_data$reTrms$Lambdat@x <- other_args$theta[parsed_data$reTrms$Lind]
 
-  dplyr::inner_join(ll_unpenalized, penalty, by = "Zi") %>%
-    dplyr::mutate(ll = ll - penalty) %>%
-    dplyr::select(Zi, ll)
+  penalty <- 0.5 * t(b) %*% Matrix::solve(parsed_data$reTrms$Lambdat) %*% b
+
+  penalised_likelihood <- sum(other_args$stat * (risk_score - log(at_risk))) - penalty
+
+  penalised_likelihood@x
 
 }
 
-#' lp_grd
-#'
-#' combine the gradient function for \eqn{\beta} and b to make one vector of
-#' gradients.
-#'
+#' lp_gr_beta
+#' @rdname lp_gr
 #' @export
 
-lp_grd <- function(parms, X, cluster, stat_time, dij, theta, data, ...) {
+lp_gr_beta <- function(params, formula, parsed_data, other_args){
+  UseMethod("lp_gr_beta", parsed_data)
+}
 
-  b <- parms[-seq_len(length.out = length(X))]
+#' lp_gr_beta.ppl
+#' @rdname lp_gr
+#' @export
 
-  D <- theta * diag(length(b))
+lp_gr_beta.ppl <- function(params, formula, parsed_data, other_args) {
 
-  l4 <- dlp_beta(parms = parms, X = X, cluster = cluster,
-                 stat_time = {{ stat_time }}, dij = {{ dij }}, data = data) %>%
-    dplyr::pull(ll)
+  # ds_sorted <- sortAndIndex(data, sort_vars = stat_time)
+  #
+  # parsed_data <- lme4::lFormula(formula, data = ds_sorted)
 
-  l5 <- dlp_b(parms  = parms, X = X, cluster = cluster,
-              stat_time = {{ stat_time }}, dij = {{ dij }}, D = D, data = data) %>%
-    dplyr::pull(ll)
+  beta_index <- seq_len(ncol(parsed_data$X) - 1)
 
-  c(l4, l5)
+  beta <- params[beta_index]
+  b <- params[-beta_index]
+
+  risk_score <- parsed_data$X[, -1] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
+
+  exp_risk_score <- exp(risk_score)
+
+  rev_exp_risk_score <- exp_risk_score
+  rev_exp_risk_score@x <- rev(exp_risk_score@x)
+
+  at_risk <- Matrix(rev(cumsum(rev_exp_risk_score)), ncol = 1)
+
+  exp_risk_score_X <- exp_risk_score * parsed_data$X[,-1]
+
+  ## I replaced this with fast_risk_sets, which is faster when there are lots of columns. Else it's about the same.
+  #
+  # at_risk_list <- apply(exp_risk_score_X, 2, function(column){
+  #   Matrix(rev(cumsum(rev(column))), ncol = 1)
+  # })
+  #
+  # at_risk_X <- Reduce(cbind, at_risk_list)
+
+  at_risk_X <- fast_risk_sets(exp_risk_score_X)
+
+  # stat <- Matrix(ds_sorted$stat, ncol = 1)
+
+  likelihood_gradients <- colSums(other_args$stat * (parsed_data$X[, -1] - at_risk_X/at_risk))
+
+  likelihood_gradients
 
 }
 
+#' lp_gr_b
+#' @rdname lp_gr
+#' @export
 
+lp_gr_b <- function(params, formula, parsed_data, other_args){
+  UseMethod("lp_gr_b", parsed_data)
+}
 
-#' inner product
-#'
-#' fast version of a %*% t(b) when a and b are diagonal matrices of the same size is:
-#' sum(a*a).
-#'
-#'
+#' lp_gr_b.ppl
+#' @rdname lp_gr
+#' @export
 
-inner <- function(a, b = a) {
-  sum(a * b)
+lp_gr_b.ppl <- function(params, formula, parsed_data, other_args) {
+  #
+  # ds_sorted <- sortAndIndex(data, sort_vars = stat_time)
+  #
+  # parsed_data <- lme4::lFormula(formula, data = ds_sorted)
+
+  beta_index <- seq_len(ncol(parsed_data$X) - 1)
+
+  beta <- params[beta_index]
+  b <- params[-beta_index]
+
+  risk_score <- parsed_data$X[, -1] %*% beta + crossprod(parsed_data$reTrms$Zt, b)
+
+  exp_risk_score <- exp(risk_score)
+
+  rev_exp_risk_score <- exp_risk_score
+  rev_exp_risk_score@x <- rev(exp_risk_score@x)
+
+  at_risk <- Matrix(rev(cumsum(rev_exp_risk_score)), ncol = 1)
+
+  bl <- length(b)
+
+  exp_risk_score_Z <- Matrix(rep(exp_risk_score, bl), ncol = bl) * t(parsed_data$reTrms$Zt)
+
+  # at_risk_list <- apply(exp_risk_score_Z, 2, function(column){
+  #   Matrix(rev(cumsum(rev(column))), ncol = 1)
+  # })
+  #
+  # at_risk_Z <- Reduce(cbind, at_risk_list)
+
+  at_risk_Z <- fast_risk_sets(exp_risk_score_Z)
+
+  # stat <- Matrix(ds_sorted$stat, ncol = 1)
+
+  likelihood_gradients_unpenalised <- colSums(other_args$stat * (t(parsed_data$reTrms$Zt) - at_risk_Z/at_risk))
+
+  parsed_data$reTrms$Lambdat@x <- other_args$theta[parsed_data$reTrms$Lind]
+
+  penalty <- t(b) %*% solve(parsed_data$reTrms$Lambdat)
+
+  # this accessing @x is probably poor practice?
+  likelihood_gradients_unpenalised - penalty@x
+
+}
+
+#' lp_gr
+#'
+#' caluculate jacobian
+#'
+#' @rdname lp_gr
+#' @export
+
+lp_gr <- function(params, formula, parsed_data, other_args){
+  UseMethod("lp_gr", parsed_data)
 }
 
 
-#' Shared frailty theta
+#' lp_gr.ppl
+#' @rdname lp_gr
+#' @export
+
+lp_gr.ppl <- function(params, formula, parsed_data, other_args) {
+
+  c(lp_gr_beta.ppl(params = params, formula = formula, parsed_data = parsed_data, other_args = other_args),
+    lp_gr_b.ppl(   params = params, formula = formula, parsed_data = parsed_data, other_args = other_args))
+
+}
+
+#' add ppl class
 #'
-#' In a shared frailty model with i.i.d. frailty terms, the solution to the
-#' estimating equation for \eqn{\theta} has a closed form, implemented here.
-#'
-#'
+#' for method dispatch
 #'
 #' @export
 
-est_theta <- function(b, K_ppl){
+make_ppl <- function(data){
 
-  c((inner(b) + sum(diag(solve(K_ppl)))) / length(b))
+  # stopifnot(is.data.frame(data))
 
-}
+  class(data) <- c("ppl", oldClass(data))
 
-#' Shared frailty theta
-#'
-#' In a shared frailty model with i.i.d. frailty terms, the solution to the
-#' estimating equation for \eqn{\theta} has a closed form, implemented here.
-#'
-#' In the code, the identity matrix is the derivative of D, but for more
-#' complex frailty models, D and it's derivative will be more complex (and this code won't work correctly).
-#'
-#'
-#'
-#' @export
-
-est_theta2 <- function(par, b, K_ppl){
-
-  theta = par
-
-  I = diag(length(b))
-
-  D = theta * I
-
-  D_inv = solve(D)
-
-  # term1 <- -0.5 * sum(diag(D_inv %*% I))
-  #
-  # term2 <- -0.5 * sum(diag(solve(K_ppl) %*% D_inv %*% I %*% D_inv))
-  #
-  # term3 <- 0.5 * t(b) %*% D_inv %*% I %*% D_inv %*% b
-  #
-  # term1 + term2 + term3
-
-  c(-0.5 * (
-    sum(diag(D_inv))
-    + sum(diag(-solve(K_ppl) %*% D_inv %*% D_inv))
-    - t(b) %*% D_inv %*% D_inv %*% b
-  ))
-
+  data
 
 }
 
-
+#' fast risk sets
+#'
+#' not that fast. a target for speeding up.
+#'
 #' @export
 
+fast_risk_sets <- function(a_matrix){
 
+  # flip it
+  rev_index <- rev(seq_len(nrow(a_matrix)))
+  m <- a_matrix[rev_index, ]
 
-est_theta3 <- function(par, parms, X, stat_time, cluster, dij, data, b){
+  # cumsums
+  m <- matrixStats::colCumsums(as.matrix(m))
 
-  theta = par
+  # flip it back
+  m <- m[rev_index,]
 
-  I = diag(length(b))
-
-  D = theta * I
-
-  D_inv = solve(D)
-
-  q = length(b)
-
-  K_ppl <- bb(parms = my_params, X = X, stat_time = stat_time,
-              cluster = "M", dij = stat, data = sample_data,
-              theta = theta, return_matrix = TRUE)
-
-
-  c((sum(diag(solve(K_ppl))) + t(b)%*%b)/q - theta)
-
-
+  # restore class
+  Matrix(m)
 }
 
 
@@ -421,388 +270,106 @@ est_theta3 <- function(par, parms, X, stat_time, cluster, dij, data, b){
 #'
 #' @export
 #'
-#'
-#'
 
-theta_ipl <-   function(one_theta, parms, X, stat_time, dij, cluster, data ){
+theta_ipl <- function(theta, formula, parsed_data, other_args){
 
-  D <- one_theta * diag(length(parms) - length(X))
+  # set up D
+  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
 
-  kbb <- bb(parms = parms,
-            X = X,
-            stat_time = {{ stat_time }},
-            dij = {{ dij }},
-            theta = one_theta,
-            cluster = cluster,
-            data = data,
-            return_matrix = TRUE)
+  D <- parsed_data$reTrms$Lambdat
 
-  penalised <- lp(parms = parms,
-                  X = X,
-                  stat_time = {{ stat_time }},
-                  dij = {{ dij }},
-                  theta = one_theta,
-                  cluster = cluster,
-                  data = data)
+  ## This gets passed in now, to avoid recalculation
+  # n_fixed <- length(attr(terms(coxme:::formula1(formula)$fixed), "order"))
+  #
+  # fixed_formula <- lme4:::getFixedFormula(formula)
+  #
+  # fit0 <- survival::coxph(fixed_formula, data = data)
+  #
+  # start_params <- c(coef(fit0), rep(0, length(parsed_data$reTrms$Lind)))
 
-  ipl <- -0.5 * log(det(D)) - 0.5 * log(det(kbb)) + penalised
+  ests <- optim(par = other_args$start_params,
+                fn = lp,
+                gr = lp_gr,
+                formula = formula,
+                parsed_data = make_ppl(parsed_data),
+                other_args = list(theta = theta,
+                                  stat = other_args$stat),
+                method = "BFGS",
+                control = list(fnscale = -1),
+                hessian = TRUE)
 
-  attr(ipl, "penalty") <- NULL
+  # take the part of the hessian associated with the random effects only
+  Kbb <- ests$hessian[-(1:other_args$n_fixed), -(1:other_args$n_fixed)]
 
-  ipl
-
-}
-
-#' first derivative of the likelihood for theta
-#'
-#' This is the simplified version, assuming shared frailty.
-#'
-#'
-#' @export
-
-theta_ipl_gr <- function(one_theta, parms, X, stat_time, dij, cluster, data) {
-
-  b <- parms[-seq_along(X)]
-
-  D <- one_theta * diag(length(b))
-
-  D_inv <- solve(D)
-
-  theta_inv <- 1/one_theta
-
-  kbb <- bb(parms = parms,
-            X = X,
-            stat_time = {{ stat_time }},
-            dij = {{ dij }},
-            theta = one_theta,
-            cluster = cluster,
-            data = data,
-            return_matrix = TRUE)
-
-  0.5 * (inner(b) * (theta_inv)^2 - sum(length(b)*theta_inv) - sum(diag(solve(kbb) %*% D_inv %*% D_inv)))
+  c(-0.5 * determinant(D)$modulus -0.5 * determinant(Kbb)$modulus + ests$value)
 
 }
 
+#' this will be a proper function that tries a few sensible point on the
+#' theta sample space and returns the best one, based on theta_ipl.
+#' Currently just returns a vector of ones of length n_theta
 
+get_start_theta <- function(n_theta){
 
-
-#' estimate all parameters in a shared frailty model
-#'
-#' Algorithm iterates between estimating fixed and random effects for a given
-#' theta, and estimating theta given the current estimates fixed and random effects,
-#' until convergence is reached.
-#'
-#'
-#' @export
-
-estimate_parameters <- function(start_theta,
-                                start_parms,
-                                X,
-                                stat_time,
-                                cluster,
-                                dij,
-                                data,
-                                theta_hessian = FALSE) {
-
-  fit_beta_b <- optim(par = start_parms,
-                      fn = lp,
-                      gr = lp_grd,
-                      X = X,
-                      stat_time = {{ stat_time }},
-                      cluster = cluster,
-                      dij = {{ dij }},
-                      theta = start_theta,
-                      data = data,
-                      method = "BFGS",
-                      control = list(fnscale = -1))
-
-  fit_theta <- optim(par = c(start_theta),
-                     fn = theta_ipl,
-                     gr = theta_ipl_gr,
-                     parms = fit_beta_b$par,
-                     X = X,
-                     stat_time = {{ stat_time }},
-                     dij = {{ dij }},
-                     cluster = cluster,
-                     data = data,
-                     method = "L-BFGS-B",
-                     control = list(fnscale = -1),
-                     lower = 0.00001,
-                     upper = 1000,
-                     hessian = theta_hessian)
-
-  # check convergence
-  if(fit_beta_b$convergence != 0 | fit_theta$convergence != 0 ) stop("failed to converge")
-
-  list(new_theta = fit_theta$par,
-       new_beta_b = fit_beta_b$par)
+  rep(1, n_theta)
 
 }
 
-
-
-
-#' estimate all parameters in a shared frailty model
-#'
-#' Algorithm iterates between estimating fixed and random effects for a given
-#' theta, and estimating theta given the current estimates fixed and random effects,
-#' until convergence is reached.
-#'
-#' returns the optim results, plus variance information for all estimated parameters
-#'
+#' estimate theta beta and b
 #'
 #' @export
 
-estimate_parameters2 <- function(start_theta,
-                                start_parms,
-                                X,
-                                stat_time,
-                                cluster,
-                                dij,
-                                data) {
+est_parameters <- function(formula, data) {
 
-  fit_beta_b <- optim(par = start_parms,
-                      fn = lp,
-                      gr = lp_grd,
-                      X = X,
-                      stat_time = {{ stat_time }},
-                      cluster = cluster,
-                      dij = {{ dij }},
-                      theta = start_theta,
-                      data = data,
-                      method = "BFGS",
-                      control = list(fnscale = -1))
+  # this stuff is needed for each call to lp and lp_grd, but doesn't change, so
+  # I calculate it once here, and pass it in.
 
-  fit_theta <- optim(par = c(start_theta),
+  ds_sorted <- sortAndIndex(data, sort_vars = stat_time)
+
+  parsed_data <- lme4::lFormula(formula, data = ds_sorted)
+
+  theta_start <- get_start_theta(length(parsed_data$reTrms$flist))
+
+
+  n_fixed <- length(attr(terms(coxme:::formula1(formula)$fixed), "order"))
+
+  fixed_formula <- lme4:::getFixedFormula(formula)
+
+  fit0 <- survival::coxph(fixed_formula, data = data)
+
+  start_params <- c(coef(fit0), rep(0, length(parsed_data$reTrms$Lind)))
+
+  # assumes that the response is of the form Surv(time, stat). Behaviour for other Surv formats is undefined.
+  stat <- Matrix(unclass(parsed_data$fr[,1])[, "status"], ncol = 1)
+
+  theta_est <- optim(par = theta_start,
                      fn = theta_ipl,
                      gr = NULL,
-                     parms = fit_beta_b$par,
-                     X = X,
-                     stat_time = {{ stat_time }},
-                     dij = {{ dij }},
-                     cluster = cluster,
-                     data = data,
+                     formula = formula,
+                     parsed_data = parsed_data,
+                     other_args = list(n_fixed = n_fixed,
+                                       start_params = start_params,
+                                       stat = stat),
                      method = "L-BFGS-B",
                      control = list(fnscale = -1),
-                     lower = 0.00001,
-                     upper = 1000,
-                     hessian = TRUE)
+                     lower = 0.00001, upper = Inf)
 
 
 
-  # check convergence
-  if(fit_beta_b$convergence != 0 | fit_theta$convergence != 0 ) stop("failed to converge")
+  beta_b_est <- optim(par = start_params,
+                      fn = lp,
+                      gr = lp_gr,
+                      formula = formula,
+                      parsed_data = make_ppl(parsed_data),
+                      other_args = list(theta = theta_est$par,
+                                        stat = stat),
+                      method = "BFGS",
+                      control = list(fnscale = -1),
+                      hessian = TRUE)
 
-  list(new_theta = fit_theta,
-       new_beta_b = fit_beta_b)
-
-}
-
-
-
-
-
-#' loops estimate_parameters and est_theta until convergence or max iterations
-#' is reached.
-#'
-#' @export
-
-estimate_parameters_loop <- function(start_theta,
-                                     start_parms,
-                                     X,
-                                     stat_time,
-                                     cluster,
-                                     dij,
-                                     data,
-                                     max_iter = 100,
-                                     convergence_threshold = 0.00001){
-
-  current_estimates <- estimate_parameters(start_theta = start_theta,
-                                           start_parms = start_parms,
-                                           X = X,
-                                           stat_time = {{ stat_time }},
-                                           cluster = "M",
-                                           dij = {{dij}},
-                                           data = data)
-
-  estimate_history <- list(current_estimates)
-
-  for (i in 1:max_iter) {
-
-    current_estimates <- try(estimate_parameters(start_theta = current_estimates$new_theta,
-                                                 start_parms = current_estimates$new_beta_b,
-                                                 X = X,
-                                                 stat_time = {{ stat_time }},
-                                                 cluster = "M",
-                                                 dij = {{dij}},
-                                                 data = data))
-
-    if("try-error" %in% class(current_estimates)) {
-      converged = FALSE
-      cat("fit failed on iteration", i, "\n")
-      break
-    }
-
-    estimate_history[[i+1]] <- current_estimates
-
-    biggest_diff = max(abs(c(estimate_history[[i]]$new_theta - estimate_history[[i+1]]$new_theta,
-                             estimate_history[[i]]$new_beta_b - estimate_history[[i+1]]$new_beta_b)), na.rm = TRUE)
-
-    if(biggest_diff <= convergence_threshold){
-      converged = TRUE
-      cat("converged in", i, "iterations", "\n")
-      break
-    }
-
-  }
-
-  if(!exists("converged")){converged = FALSE}
-
-  list(
-    estimate_history = estimate_history,
-    converged = converged)
+  list(theta = theta_est$par,
+       beta = beta_b_est$par[seq_len(n_fixed)],
+       b = beta_b_est$par[-seq_len(n_fixed)])
 
 }
-
-
-
-# estimates variance of theta using the formula for shared frailty from ripatti palmgren
-# the parameters should be taken from the optim steps in estimate_parameters.
-
-var_theta <- function(){
-
-
-}
-
-
-
-
-
-
-
-
-#' profile likelihood for theta
-#'
-#' Only for shared frailty models.
-#'
-#' @export
-#'
-
-pl_theta <- function(theta, b, K_ppl){
-#
-#   # This is the IPL, removing the bit that doesn't depend on theta, which should be
-#   # fine, but... maybe not? Below I try adding it back in.
-#
-#   D <- theta * diag(length(b))
-#
-#   c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + 2 * lp))
-
-  # change of plan again,
-
-    D <- theta * diag(length(b))
-
-    c((-1/2) * ( log(det(D)) + log(det(K_ppl)) + inner(b) * theta ))
-
-
-
-}
-
-
-#' likelihood function for optim. Takes a value of \eqn{\theta}, plus everything
-#' needed to maximise \eqn{\beta} and \eqn{b} for that \eqn{\theta}. In future,
-#' need to extend this to work for a vector of thetas.
-#'
-#' @export
-
-optim_ipl <- function(theta, start_parms, X, stat_time, cluster, dij, data, likelihood_only = FALSE) {
-
-    # estimate beta and b for given theta
-
-    fit_optim <- optim(par = start_parms,
-                       fn = lp,
-                       gr = lp_grd,
-                       X = X,
-                       stat_time = {{ stat_time }},
-                       cluster = cluster,
-                       dij = {{ dij }},
-                       theta = theta,
-                       data = data,
-                       method = "BFGS",
-                       control = list(fnscale = -1))
-
-    # return likelihood for given theta, and estimated beta and b
-
-    D <- theta * diag(length(start_parms) - length(X))
-
-    kbb <- bb(parms = fit_optim$par,
-              X = my_X,
-              stat_time = stat_time,
-              dij = stat,
-              theta = theta,
-              cluster = "M",
-              data = ds,
-              return_matrix = TRUE)
-
-    penalised <- lp(parms = fit_optim$par,
-                    X = my_X,
-                    stat_time = stat_time,
-                    dij = stat,
-                    theta = theta,
-                    cluster = "M",
-                    data = ds)
-
-
-    ipl <- -0.5 * log(det(D)) - 0.5 * log(det(kbb)) + penalised
-
-    attr(ipl, "penalty") <- NULL
-
-    if(likelihood_only){
-      return(ipl)
-    }
-
-    list(fit_optim, ipl)
-
-}
-
-
-
-#' K''
-#'
-#' Ripatti Palmgren sub out K'' for K_ppl''. Here I implement K'' so I can compare the use of both
-#' methods. This involves calculation of the breslow estimator of cumulative hazard.
-#'
-#'
-#'
-#' @export
-#'
-
-K_prime_prime <- function(parms, X, stat_time, dij, theta, cluster, data, ...) {
-
-    data_with_Z <- add_Z(data, cluster)
-    sortedIndexedData <- sortAndIndex(data = data_with_Z, sort_vars = {{ stat_time }})
-
-    b <- parms[-seq_len(length.out = length(X))]
-
-    my_cluster <- as.symbol(cluster)
-
-    D = theta * diag(length(b))
-
-    terms1 <- calcLinearPredictor(sortedIndexedData, X = X, Z = attr(data_with_Z, "Z_names"), parms = parms)
-
-    terms2 <- calcRiskSets(terms1)
-
-    ll <- terms2 %>%
-      dplyr::mutate(d_cumhaz = {{ dij }} / cumsum_A,
-                    cumhaz = cumsum(d_cumhaz),
-                    li = cumhaz * A) %>%
-      dplyr::group_by({{ my_cluster }}) %>%
-      dplyr::summarise(ll = sum(li), .groups = "drop") %>%
-      dplyr::arrange({{ my_cluster }}) %>%
-      dplyr::pull(ll)
-
-    diag(ll) + solve(D)
-
-  }
-
-
 

@@ -15,7 +15,7 @@ new_lp <- function(params, formula, data, theta) {
   b <- params[-beta_index]
 
   # drop the intercept column from the X model.matrix
-  risk_score <- parsed_data$X[, -1] %*% beta + crossprod(parsed_data$reTrms$Zt, b)
+  risk_score <- parsed_data$X[, -1] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
 
   exp_risk_score <- exp(risk_score)
 
@@ -25,16 +25,16 @@ new_lp <- function(params, formula, data, theta) {
   rev_exp_risk_score <- exp_risk_score
   rev_exp_risk_score@x <- rev(exp_risk_score@x)
 
-  at_risk <- Matrix(rev(cumsum(rev_exp_risk_score)), ncol = 1)
+  at_risk <- Matrix::Matrix(rev(cumsum(rev_exp_risk_score)), ncol = 1)
 
   # would be good to peel stat out of the Surv() obeject in the parsed formula...
-  stat <- Matrix(ds_sorted$stat, ncol = 1)
+  stat <- Matrix::Matrix(ds_sorted$stat, ncol = 1)
 
   # penalty
 
   parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
 
-  penalty <- 0.5 * t(b) %*% solve(parsed_data$reTrms$Lambdat) %*% b
+  penalty <- 0.5 * t(b) %*% Matrix::solve(parsed_data$reTrms$Lambdat) %*% b
 
   penalised_likelihood <- sum(stat * (risk_score - log(at_risk))) - penalty
 
@@ -43,21 +43,7 @@ new_lp <- function(params, formula, data, theta) {
 }
 
 
-fast_risk_sets <- function(a_matrix){
 
-  # flip it
-  rev_index <- rev(seq_len(nrow(a_matrix)))
-  m <- a_matrix[rev_index, ]
-
-  # cumsums
-  m <- matrixStats::colCumsums(as.matrix(m))
-
-  # flip it back
-  m <- m[rev_index,]
-
-  # restore class
-  Matrix(m)
-}
 
 lp_gr_beta <- function(params, formula, data, theta) {
 
@@ -153,7 +139,7 @@ lp_gr <- function(params, formula, data, theta) {
 }
 
 
-new_theta_ipl <- function(theta, formula, start_params, data){
+new_theta_ipl <- function(theta, formula, data){
 
   parsed_data <- lme4::lFormula(formula, data = data)
 
@@ -163,6 +149,12 @@ new_theta_ipl <- function(theta, formula, start_params, data){
   D <- parsed_data$reTrms$Lambdat
 
   n_fixed <- length(attr(terms(coxme:::formula1(formula)$fixed), "order"))
+
+  fixed_formula <- lme4:::getFixedFormula(formula)
+
+  fit0 <- survival::coxph(fixed_formula, data = data)
+
+  start_params <- c(coef(fit0), rep(0, length(parsed_data$reTrms$Lind)))
 
   ests <- optim(par = start_params,
                 fn = new_lp,
@@ -227,6 +219,8 @@ theta_est <- optim(par = 0.5,
 coxfit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M1), data = ds)
 
 coxme::VarCorr(coxfit)
+
+theta_est$par
 
 # try two random effects.
 

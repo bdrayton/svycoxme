@@ -63,7 +63,7 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
   fixed_terms <- stats::terms(lme4::nobars(formula))
 
   # These are the fixed term variables in the formula, even if there are interactions.
-  fixed_term_variables <- rownames(attr(fixed_terms, "factors"))
+  fixed_term_variables <- colnames(attr(fixed_terms, "factors"))
 
   # checking coefficients needs to account for interactions, which depends on levels of the variables.
   # im going to remove this for now, and reinstate a more sophisticated version if that becomes necessary.

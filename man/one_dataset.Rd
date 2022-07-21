@@ -22,7 +22,7 @@ one_dataset(
 
 \item{coefficients}{vector of fixed effect coefficients. If there are more coefficients than fixed effects, only those up to the number of fixed effects will be used and the rest ignored.}
 
-\item{random_effect_variance}{list of thetas}
+\item{random_effect_variance}{named list of thetas. Names to match formula terms.}
 
 \item{seed}{passed to set.seed. Use if you need the random processes to be reproducible.}
 }

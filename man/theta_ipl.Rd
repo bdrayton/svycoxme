@@ -4,7 +4,7 @@
 \alias{theta_ipl}
 \title{likelihood for theta}
 \usage{
-theta_ipl(one_theta, parms, X, stat_time, dij, cluster, data)
+theta_ipl(theta, formula, parsed_data, other_args)
 }
 \description{
 likelihood for theta
