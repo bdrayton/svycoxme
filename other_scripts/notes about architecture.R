@@ -7,6 +7,7 @@
 #'   - random effects only
 #'   - fixed and random effects
 #'   - nested random effects.
+#'   - crossed random effects.
 #'
 #' For each model, I want to look at a range of
 #'   - sample sizes,
@@ -30,7 +31,7 @@
 #' at doing that. This approach is really amenable to extention.
 #'
 #'
-#'
+
 
 
 
