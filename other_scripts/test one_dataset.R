@@ -15,7 +15,7 @@ one_dataset(~X1 + X2 + X3 + (1 | M),
 )
 
 # test with three fixed and two random effects
-one_dataset(~X1 + X2 + X3 + (1 | M1) + (1| M2),
+test <- one_dataset(~X1 + X2 + X3 + (1 | M1) + (1| M2),
             dists = list(X1 = ~rnorm(n),
                          X2 = ~rnorm(k * nk),
                          X3 = ~rbinom(n, 1, 0.5),
@@ -27,6 +27,9 @@ one_dataset(~X1 + X2 + X3 + (1 | M1) + (1| M2),
             coefficients = c(1, 1, 1),
             random_effect_variance = list(M1 = 1, M2 = 2)
 )
+
+attr(test, "random")
+
 
 # test with no random effects
 # debugonce(one_dataset)

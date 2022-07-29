@@ -153,6 +153,10 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
 
   vars_df$stat <- lazyeval::f_eval(dists$stat, data = dist_args)
 
+  # add random effects as an attribute
+
+  attr(vars_df, "random_effects") <- lp_random_effects
+
   vars_df
 
 }
