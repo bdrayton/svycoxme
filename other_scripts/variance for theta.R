@@ -4,8 +4,8 @@
 # analytical hessian for theta
 
 my_formula <- survival::Surv(stat_time, stat)~X1 + X2 + X3 + (1 | M1) + (1 | M2)
-my_k = 50
-my_nk = 10
+my_k = 10
+my_nk = 4
 my_theta = c(M1 = 2, M2 = 1)
 my_beta = c(1, -0.7, 0.5)
 
@@ -42,7 +42,44 @@ start_params <- c(coef(fit0),
                         mean = 0,
                         sd = sqrt(theta_start[parsed_data$reTrms$Lind])))
 
-parameters <- est_parameters(my_formula, ds, method = "ppl")
+control.list <- function(re_only = TRUE, convergence_threshold = 0.00001, max_iter = 10){
+  list(re_only = re_only, convergence_threshold = convergence_threshold, max_iter = max_iter)
+}
+
+parameters <- est_parameters(my_formula, ds, method = "ppl",
+                             control = control.list(max_iter = 100))
+
+
+parameters2 <- est_parameters(my_formula, ds, method = "ppl",
+                              start_params = c(parameters$beta, parameters$b),
+                              theta_start = parameters$theta,
+                              control = control.list())
+
+attr(parameters2, "iterations")
+attr(parameters, "iterations")
+
+
+# compare estimates and hessians. In particular, hessians 1 and 4, which should
+# be the same in parameters2.
+
+max(abs(parameters$beta - parameters2$beta))
+
+max(abs(parameters$b - parameters2$b))
+
+max(abs(parameters$theta - parameters2$theta))
+
+
+max(abs(attr(parameters,  "theta_ests")$hessian - attr(parameters2, "theta_ests")$hessian))
+
+max(abs(attr(parameters,  "beta_b_est")$hessian - attr(parameters2, "beta_b_est")$hessian))
+
+
+(hessian_estimates <- theta_ests[grepl("hessian", names(theta_ests))])
+(hessian_estimates2 <- theta_ests2[grepl("hessian", names(theta_ests2))])
+
+
+
+
 
 theta <- parameters$theta
 

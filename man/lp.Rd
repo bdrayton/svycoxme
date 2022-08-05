@@ -10,11 +10,9 @@ lp(params, formula, parsed_data, other_args)
 
 \method{lp}{ppl}(params, formula, parsed_data, other_args)
 
-\method{lp}{pplextra}(params, formula, data, other_args)
+\method{lp}{pplextra}(params, formula, parsed_data, other_args)
 }
 \arguments{
-\item{data}{tibble with all these columns}
-
 \item{parms}{numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.}
 
 \item{X}{character vector containing names of X columns in data.}
@@ -26,6 +24,8 @@ lp(params, formula, parsed_data, other_args)
 \item{dij}{column in data indicating if observation was censored or a failure.}
 
 \item{D}{diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.}
+
+\item{data}{tibble with all these columns}
 }
 \description{
 The specific method called depends on the class of the parsed data. At time of writing,

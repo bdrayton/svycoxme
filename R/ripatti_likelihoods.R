@@ -91,7 +91,11 @@ lp.ppl <- function(params, formula, parsed_data, other_args) {
 
   penalised_likelihood <- sum(other_args$stat * (risk_score - log(at_risk))) - penalty
 
-  penalised_likelihood@x
+  to_return <- penalised_likelihood@x
+
+  attr(to_return, "penalty") <- penalty@x
+
+  to_return
 
 }
 
@@ -565,7 +569,8 @@ get_start_theta <- function(n_theta){
 #'
 #' @export
 
-est_parameters <- function(formula, data, method, start_params = NULL, theta_start = NULL, control = list(re_only = TRUE)) {
+est_parameters <- function(formula, data, method, start_params = NULL, theta_start = NULL,
+                           control = list(re_only = TRUE, convergence_threshold = 0.00001, max_iter = 10)) {
 
   # Allow start parameters to be passed in, so I can use ppl, and then refin with pplextra.
 
@@ -616,8 +621,7 @@ est_parameters <- function(formula, data, method, start_params = NULL, theta_sta
                                        re_only = control$re_only),
                      method = "L-BFGS-B",
                      control = list(fnscale = -1),
-                     lower = 0.00001, upper = Inf,
-                     hessian = TRUE)
+                     lower = 0.00001, upper = Inf)
 
   beta_b_est <- optim(par = start_params,
                       fn = lp,
@@ -627,42 +631,90 @@ est_parameters <- function(formula, data, method, start_params = NULL, theta_sta
                       other_args = list(theta = theta_est$par,
                                         stat = stat),
                       method = "BFGS",
-                      control = list(fnscale = -1),
-                      hessian = TRUE)
+                      control = list(fnscale = -1))
 
-  # get the hessian for theta
-  theta_est$hessian2 <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
+  # iterate between these steps until convergence.
+
+  for (i in seq_len(control$max_iter)){
+
+    current_ests <- c(beta_b_est$par, theta_est$par)
+
+    theta_est <- optim(par = theta_est$par,
+                       fn = theta_ipl,
+                       gr = NULL,
+                       formula = formula,
+                       parsed_data = parsed_data,
+                       other_args = list(n_fixed = n_fixed,
+                                         start_params = beta_b_est$par,
+                                         stat = stat,
+                                         re_only = control$re_only),
+                       method = "L-BFGS-B",
+                       control = list(fnscale = -1),
+                       lower = 0.00001, upper = Inf)
+
+    beta_b_est <- optim(par = beta_b_est$par,
+                        fn = lp,
+                        gr = lp_gr,
+                        formula = formula,
+                        parsed_data = parsed_data,
+                        other_args = list(theta = theta_est$par,
+                                          stat = stat),
+                        method = "BFGS",
+                        control = list(fnscale = -1))
+
+    # test convergence
+    converged <- max(abs(current_ests - c(beta_b_est$par, theta_est$par))) <= control$convergence_threshold
+
+    if(converged) break
+
+  }
+
+  beta_b_est$hessian <- optimHess(beta_b_est$par, fn = lp, gr = lp_gr, parsed_data = parsed_data,
+                                 other_args = list(theta = theta_est$par,
+                                                   stat = stat),
+                                 control = list(fnscale = -1))
+
+  theta_est$hessian <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
                                  other_args = list(n_fixed = n_fixed,
                                                    start_params = beta_b_est$par,
                                                    stat = stat,
                                                    re_only = control$re_only),
                                  control = list(fnscale = -1))
 
-  # a better hessian?
-  theta_est$hessian3 <- numDeriv::hessian(theta_ipl, x = theta_est$par,
-                                          parsed_data = parsed_data,
-                                          other_args = list(n_fixed = n_fixed,
-                                                            start_params = beta_b_est$par,
-                                                            stat = stat,
-                                                            re_only = control$re_only))
+
+  # # get the hessian for theta # this is about as accurate as the call for hessian4
+  # theta_est$hessian2 <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
+  #                                other_args = list(n_fixed = n_fixed,
+  #                                                  start_params = beta_b_est$par,
+  #                                                  stat = stat,
+  #                                                  re_only = control$re_only),
+  #                                control = list(fnscale = -1))
+  #
+  # # a better hessian?
+  # theta_est$hessian3 <- numDeriv::hessian(theta_ipl, x = theta_est$par,
+  #                                         parsed_data = parsed_data,
+  #                                         other_args = list(n_fixed = n_fixed,
+  #                                                           start_params = beta_b_est$par,
+  #                                                           stat = stat,
+  #                                                           re_only = control$re_only))
 
   # the final hessian to try.
-  theta2 <- optim(par = theta_est$par,
-        fn = theta_ipl,
-        gr = NULL,
-        formula = formula,
-        parsed_data = parsed_data,
-        other_args = list(n_fixed = n_fixed,
-                          start_params = beta_b_est$par,
-                          stat = stat,
-                          re_only = control$re_only),
-        method = "L-BFGS-B",
-        control = list(fnscale = -1),
-        lower = 0.00001, upper = Inf,
-        hessian = TRUE)
+  # this works best
+  # theta2 <- optim(par = theta_est$par,
+  #       fn = theta_ipl,
+  #       gr = NULL,
+  #       formula = formula,
+  #       parsed_data = parsed_data,
+  #       other_args = list(n_fixed = n_fixed,
+  #                         start_params = beta_b_est$par,
+  #                         stat = stat,
+  #                         re_only = control$re_only),
+  #       method = "L-BFGS-B",
+  #       control = list(fnscale = -1),
+  #       lower = 0.00001, upper = Inf,
+  #       hessian = TRUE)
 
-  theta_est$hessian4 <- theta2$hessian
-
+  # theta_est$hessian4 <- theta2$hessian
 
   ests <- list(theta = theta_est$par,
        beta = beta_b_est$par[seq_len(n_fixed)],
@@ -670,6 +722,7 @@ est_parameters <- function(formula, data, method, start_params = NULL, theta_sta
 
   attr(ests, "theta_ests") <- theta_est
   attr(ests, "beta_b_est") <- beta_b_est
+  attr(ests, "iterations") <- i
 
   ests
 
