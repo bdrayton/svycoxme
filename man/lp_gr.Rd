@@ -3,6 +3,7 @@
 \name{lp_gr_beta}
 \alias{lp_gr_beta}
 \alias{lp_gr_beta.ppl}
+\alias{lp_gr.pplextra}
 \alias{lp_gr_b}
 \alias{lp_gr_b.ppl}
 \alias{lp_gr}
@@ -12,6 +13,8 @@
 lp_gr_beta(params, formula, parsed_data, other_args)
 
 \method{lp_gr_beta}{ppl}(params, formula, parsed_data, other_args)
+
+\method{lp_gr}{pplextra}(params, formula, parsed_data, other_args)
 
 lp_gr_b(params, formula, parsed_data, other_args)
 

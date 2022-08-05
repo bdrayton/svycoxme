@@ -4,7 +4,7 @@
 \alias{est_parameters}
 \title{estimate theta beta and b}
 \usage{
-est_parameters(formula, data)
+est_parameters(formula, data, method)
 }
 \description{
 estimate theta beta and b
