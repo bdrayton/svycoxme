@@ -502,14 +502,53 @@ theta_ipl <- function(theta, formula, parsed_data, other_args){
 
   D <- parsed_data$reTrms$Lambdat
 
-  ## This gets passed in now, to avoid recalculation
-  # n_fixed <- length(attr(terms(coxme:::formula1(formula)$fixed), "order"))
-  #
-  # fixed_formula <- lme4:::getFixedFormula(formula)
-  #
-  # fit0 <- survival::coxph(fixed_formula, data = data)
-  #
-  # start_params <- c(coef(fit0), rep(0, length(parsed_data$reTrms$Lind)))
+  ests <- optim(par = other_args$start_params,
+                fn = lp,
+                gr = lp_gr,
+                formula = formula,
+                parsed_data = parsed_data,
+                other_args = c(list(theta = theta), other_args),
+                method = "BFGS",
+                control = list(fnscale = -1),
+                hessian = TRUE)
+
+  # In Ripatti Palmgren they only use the b part of the Hessian matrix.
+  if(other_args$re_only) {
+    # take the part of the hessian associated with the random effects only
+    Kbb <- ests$hessian[-(1:other_args$n_fixed), -(1:other_args$n_fixed)]
+  } else {
+    Kbb <- ests$hessian
+  }
+
+  c(-0.5 * determinant(D)$modulus -0.5 * determinant(Kbb)$modulus + ests$value)
+
+}
+
+#' likelihood for theta
+#'
+#' @export
+#'
+
+theta_ipl_gr <- function(theta, formula, parsed_data, other_args){
+
+  # set up D
+  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
+
+  D <- parsed_data$reTrms$Lambdat
+
+  D_inv <- solve(D)
+
+# first derivatives of D
+  d_D_d_theta <- vector(mode = "list", length = length(parsed_data$reTrms$theta))
+
+  for (i in seq_along(parsed_data$reTrms$theta)) {
+
+    d_D_d_theta[[i]] <- parsed_data$reTrms$Lambdat
+
+    d_D_d_theta[[i]]@x <- c(theta[i], 0)[(parsed_data$reTrms$Lind != i) + 1]
+
+  }
+
 
   ests <- optim(par = other_args$start_params,
                 fn = lp,
@@ -521,7 +560,9 @@ theta_ipl <- function(theta, formula, parsed_data, other_args){
                 control = list(fnscale = -1),
                 hessian = TRUE)
 
-  # In Ripatti Palmgren they only use this part of the Hessian matrix.
+  b <- Matrix::Matrix(ests$par[-seq_len(other_args$n_fixed)], ncol = 1)
+
+  # In Ripatti Palmgren they only use the b part of the Hessian matrix.
   if(other_args$re_only) {
     # take the part of the hessian associated with the random effects only
     Kbb <- ests$hessian[-(1:other_args$n_fixed), -(1:other_args$n_fixed)]
@@ -529,9 +570,27 @@ theta_ipl <- function(theta, formula, parsed_data, other_args){
     Kbb <- ests$hessian
   }
 
-  c(-0.5 * determinant(D)$modulus -0.5 * determinant(Kbb)$modulus + ests$value)
+  Kbb_inv <- solve(Kbb)
+
+  grads <- lapply(d_D_d_theta, function(dD){
+
+    grad <- -0.5 * ( sum(diag(D_inv %*% dD))
+             - sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
+             - t(b)%*%D_inv%*%dD%*%D_inv%*%b )
+
+    grad@x
+
+  })
+
+  unlist(grads)
 
 }
+
+
+
+
+
+
 
 #' likelihood for theta
 #'
@@ -565,12 +624,38 @@ get_start_theta <- function(n_theta){
 
 }
 
+#' set control parameters for estimation loop
+#'
+#' @export
+
+
+control.list <- function(method = "ppl", grad = TRUE, re_only = TRUE, convergence_threshold = 0.00001, max_iter = 10){
+
+  list(method = method, grad = grad, re_only = re_only, convergence_threshold = convergence_threshold, max_iter = max_iter)
+
+}
+
+#' theta gradients
+#'
+#' @export
+#'
+
+theta_ipl_gr_num <- function(theta, formula, parsed_data, other_args){
+
+  numDeriv::grad(theta_ipl, x = theta,
+                 formula = formula, parsed_data = parsed_data,
+                 other_args = other_args)
+
+}
+
+
+
 #' estimate theta beta and b
 #'
 #' @export
 
-est_parameters <- function(formula, data, method, start_params = NULL, theta_start = NULL,
-                           control = list(re_only = TRUE, convergence_threshold = 0.00001, max_iter = 10)) {
+est_parameters <- function(formula, data, start_params = NULL, theta_start = NULL,
+                           control = control.list()) {
 
   # Allow start parameters to be passed in, so I can use ppl, and then refin with pplextra.
 
@@ -581,7 +666,7 @@ est_parameters <- function(formula, data, method, start_params = NULL, theta_sta
 
   parsed_data <- lme4::lFormula(formula, data = ds_sorted)
 
-  parsed_data <- switch(method,
+  parsed_data <- switch(control$method,
          "ppl" = make_ppl(parsed_data),
          "pplextra" = make_pplextra(parsed_data))
 
@@ -610,6 +695,23 @@ est_parameters <- function(formula, data, method, start_params = NULL, theta_sta
   # assumes that the response is of the form Surv(time, stat). Behaviour for other Surv formats is undefined.
   stat <- Matrix(unclass(parsed_data$fr[,1])[, "status"], ncol = 1)
 
+if(control$grad) {
+
+  theta_est <- optim(par = theta_start,
+                     fn = theta_ipl,
+                     gr = theta_ipl_gr_num,
+                     formula = formula,
+                     parsed_data = parsed_data,
+                     other_args = list(n_fixed = n_fixed,
+                                       start_params = start_params,
+                                       stat = stat,
+                                       re_only = control$re_only),
+                     method = "L-BFGS-B",
+                     control = list(fnscale = -1),
+                     lower = 0.00001, upper = Inf,
+                     hessian = TRUE)
+} else {
+
   theta_est <- optim(par = theta_start,
                      fn = theta_ipl,
                      gr = NULL,
@@ -621,7 +723,9 @@ est_parameters <- function(formula, data, method, start_params = NULL, theta_sta
                                        re_only = control$re_only),
                      method = "L-BFGS-B",
                      control = list(fnscale = -1),
-                     lower = 0.00001, upper = Inf)
+                     lower = 0.00001, upper = Inf,
+                     hessian = TRUE)
+}
 
   beta_b_est <- optim(par = start_params,
                       fn = lp,
@@ -631,56 +735,69 @@ est_parameters <- function(formula, data, method, start_params = NULL, theta_sta
                       other_args = list(theta = theta_est$par,
                                         stat = stat),
                       method = "BFGS",
-                      control = list(fnscale = -1))
+                      control = list(fnscale = -1),
+                      hessian = TRUE)
 
-  # iterate between these steps until convergence.
+  # # for writing estimation history.
+  # estimation_history <- list(theta_est = list(),
+  #                            beta_b_est = list())
+  #
+  # estimation_history$theta_est[[1]] <- theta_est
+  # estimation_history$beta_b_est[[1]] <- beta_b_est
+  #
+  # # iterate between these steps until convergence.
+  #
+  # for (i in seq_len(control$max_iter)){
+  #
+  #   current_ests <- c(beta_b_est$par, theta_est$par)
+  #
+  #   theta_est <- optim(par = theta_est$par,
+  #                      fn = theta_ipl,
+  #                      gr = NULL,
+  #                      formula = formula,
+  #                      parsed_data = parsed_data,
+  #                      other_args = list(n_fixed = n_fixed,
+  #                                        start_params = beta_b_est$par,
+  #                                        stat = stat,
+  #                                        re_only = control$re_only),
+  #                      method = "L-BFGS-B",
+  #                      control = list(fnscale = -1),
+  #                      lower = 0.00001, upper = Inf)
+  #
+  #   beta_b_est <- optim(par = beta_b_est$par,
+  #                       fn = lp,
+  #                       gr = lp_gr,
+  #                       formula = formula,
+  #                       parsed_data = parsed_data,
+  #                       other_args = list(theta = theta_est$par,
+  #                                         stat = stat),
+  #                       method = "BFGS",
+  #                       control = list(fnscale = -1))
+  #
+  #   estimation_history$theta_est[[i + 1]] <- theta_est
+  #   estimation_history$beta_b_est[[i + 1]] <- beta_b_est
+  #
+  #   # test convergence
+  #   converged <- max(abs(current_ests - c(beta_b_est$par, theta_est$par))) <= control$convergence_threshold
+  #
+  #   if(converged) break
+  #
+  # }
 
-  for (i in seq_len(control$max_iter)){
-
-    current_ests <- c(beta_b_est$par, theta_est$par)
-
-    theta_est <- optim(par = theta_est$par,
-                       fn = theta_ipl,
-                       gr = NULL,
-                       formula = formula,
-                       parsed_data = parsed_data,
-                       other_args = list(n_fixed = n_fixed,
-                                         start_params = beta_b_est$par,
-                                         stat = stat,
-                                         re_only = control$re_only),
-                       method = "L-BFGS-B",
-                       control = list(fnscale = -1),
-                       lower = 0.00001, upper = Inf)
-
-    beta_b_est <- optim(par = beta_b_est$par,
-                        fn = lp,
-                        gr = lp_gr,
-                        formula = formula,
-                        parsed_data = parsed_data,
-                        other_args = list(theta = theta_est$par,
-                                          stat = stat),
-                        method = "BFGS",
-                        control = list(fnscale = -1))
-
-    # test convergence
-    converged <- max(abs(current_ests - c(beta_b_est$par, theta_est$par))) <= control$convergence_threshold
-
-    if(converged) break
-
-  }
-
-  beta_b_est$hessian <- optimHess(beta_b_est$par, fn = lp, gr = lp_gr, parsed_data = parsed_data,
-                                 other_args = list(theta = theta_est$par,
-                                                   stat = stat),
-                                 control = list(fnscale = -1))
-
-  theta_est$hessian <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
-                                 other_args = list(n_fixed = n_fixed,
-                                                   start_params = beta_b_est$par,
-                                                   stat = stat,
-                                                   re_only = control$re_only),
-                                 control = list(fnscale = -1))
-
+#
+#
+#   beta_b_est$hessian <- optimHess(beta_b_est$par, fn = lp, gr = lp_gr, parsed_data = parsed_data,
+#                                  other_args = list(theta = theta_est$par,
+#                                                    stat = stat),
+#                                  control = list(fnscale = -1))
+#
+#   theta_est$hessian <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
+#                                  other_args = list(n_fixed = n_fixed,
+#                                                    start_params = beta_b_est$par,
+#                                                    stat = stat,
+#                                                    re_only = control$re_only),
+#                                  control = list(fnscale = -1))
+#
 
   # # get the hessian for theta # this is about as accurate as the call for hessian4
   # theta_est$hessian2 <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
@@ -720,9 +837,9 @@ est_parameters <- function(formula, data, method, start_params = NULL, theta_sta
        beta = beta_b_est$par[seq_len(n_fixed)],
        b = beta_b_est$par[-seq_len(n_fixed)])
 
-  attr(ests, "theta_ests") <- theta_est
+  attr(ests, "theta_est") <- theta_est
   attr(ests, "beta_b_est") <- beta_b_est
-  attr(ests, "iterations") <- i
+  # attr(ests, "iterations") <- i
 
   ests
 

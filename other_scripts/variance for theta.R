@@ -4,8 +4,8 @@
 # analytical hessian for theta
 
 my_formula <- survival::Surv(stat_time, stat)~X1 + X2 + X3 + (1 | M1) + (1 | M2)
-my_k = 10
-my_nk = 4
+my_k = 50
+my_nk = 10
 my_theta = c(M1 = 2, M2 = 1)
 my_beta = c(1, -0.7, 0.5)
 
@@ -22,11 +22,243 @@ ds <- one_dataset(my_formula,
                   random_effect_variance = my_theta
 )
 
+coxme_fit <- coxme::coxme(my_formula, data = ds)
+
+ests <- est_parameters(my_formula, ds, control = control.list(grad = FALSE))
+
+ests_w_gr  <- est_parameters(my_formula, ds, control = control.list(grad = TRUE))
+
+
+ests2 <- est_parameters(my_formula, ds, start_params = c(ests$beta, ests$b), theta_start = ests$theta)
+ests3 <- est_parameters(my_formula, ds, start_params = c(ests2$beta, ests2$b), theta_start = ests2$theta)
+
+# thetas
+cbind(
+  unlist(coxme::VarCorr(coxme_fit)),
+  ests$theta
+  # ests2$theta,
+  # ests3$theta
+)
+
+# betas
+cbind(
+  coefficients(coxme_fit),
+  ests$beta,
+  ests2$beta,
+  ests3$beta)
+
+# theta hessian
+# more stable when sample size is a bit bigger. (50 clusters of 10)
+# massively divergent when sample size is smaller (10 clusters of 4).
+cbind(
+  sqrt(diag(-solve(attr(ests, "theta_est")$hessian))),
+  sqrt(diag(-solve(attr(ests2, "theta_est")$hessian))),
+  sqrt(diag(-solve(attr(ests3, "theta_est")$hessian))))
+
+
+# beta hessian
+cbind(
+  sqrt(diag(-solve(attr(ests, "beta_b_est")$hessian)))[1:3],
+  sqrt(diag(-solve(attr(ests2, "beta_b_est")$hessian)))[1:3],
+  sqrt(diag(-solve(attr(ests3, "beta_b_est")$hessian)))[1:3],
+  sqrt(diag(vcov(coxme_fit))))
+
 ds_sorted <- sortAndIndex(ds, sort_vars = stat_time)
 
 parsed_data <- lme4::lFormula(my_formula, data = ds_sorted)
 
 stat <- Matrix(unclass(parsed_data$fr[,1])[, "status"], ncol = 1)
+
+
+theta_ipl(ests$theta, formula = my_formula, parsed_data = make_ppl(parsed_data),
+          other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                            re_only = TRUE,
+                            n_fixed = 3,
+                            stat = stat))
+# debugonce(theta_ipl_gr)
+numDeriv::grad(theta_ipl, x = ests$theta, parsed_data = make_ppl(parsed_data),
+                  other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                                    re_only = TRUE,
+                                    n_fixed = 3,
+                                    stat = stat))
+
+theta_ipl_gr(ests$theta, formula = my_formula, parsed_data = make_ppl(parsed_data),
+             other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                               re_only = TRUE,
+                               n_fixed = 3,
+                               stat = stat))
+
+
+
+test_thetas <- expand.grid(c(ests$theta[1], seq(from = max(ests$theta[1]-1, 0.001), to = ests$theta[1]+0.5, length.out = 21)),
+                           c(ests$theta[2], seq(from = max(ests$theta[2]-0.5, 0.001), to = ests$theta[2]+0.5, length.out = 21)))
+
+theta_likelihoods <- apply(test_thetas, 1, function(theta){
+  theta_ipl(theta, formula = my_formula, parsed_data = make_ppl(parsed_data),
+            other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                              re_only = TRUE,
+                              n_fixed = 3,
+                              stat = stat))
+})
+
+theta_gradients <- apply(test_thetas, 1, function(theta){
+  theta_ipl_gr(theta, formula = my_formula, parsed_data = make_ppl(parsed_data),
+            other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                              re_only = TRUE,
+                              n_fixed = 3,
+                              stat = stat))
+})
+
+
+
+
+plot_data <- dplyr::filter(cbind(test_thetas, theta_likelihoods), Var1 > 0, Var2 > 0) |>
+  dplyr::arrange(theta_likelihoods) |>
+  as.matrix()
+
+threejs::scatterplot3js(plot_data[,1], plot_data[,2], plot_data[,3],
+                        color = c("blue", "red")[(plot_data[,3] == max(plot_data[,3])) + 1],
+                        size = 0.1)
+
+
+fig <- plotly::plot_ly(x = test_thetas[,1], y = test_thetas[,2], z = theta_likelihoods, type = 'mesh3d')
+
+fig
+
+grad_data <- cbind(test_thetas, t(theta_gradients), theta_likelihoods)
+
+names(grad_data)
+
+threejs::scatterplot3js(grad_data[,3], grad_data[,4], grad_data[,5],
+                        color = c("blue", "red")[(grad_data[,5] == max(grad_data[,5])) + 1],
+                        size = 0.1)
+
+
+# evaluating the gradient function.
+
+# set one theta, and vary the other by a small amount.
+
+# calculate likelihoods and change over that interval. calculate gradient in the middle of the interval.
+
+
+
+test_thetas2 <- data.frame(changing = ests$theta[1] + seq(-0.5, 0.5, by = 0.1),
+                           constant = ests$theta[2])
+
+likelihoods <- apply(test_thetas2, 1, function(theta){
+                     theta_ipl(theta, formula = my_formula, parsed_data = make_ppl(parsed_data),
+                               other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                                                 re_only = TRUE,
+                                                 n_fixed = 3,
+                                                 stat = stat))
+  })
+
+
+# gradients at each point
+gradients <- apply(test_thetas2, 1, function(theta){
+  theta_ipl_gr(theta, formula = my_formula, parsed_data = make_ppl(parsed_data),
+            other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                              re_only = TRUE,
+                              n_fixed = 3,
+                              stat = stat))
+})
+
+gradients2 <- apply(test_thetas2, 1, function(theta){
+  numDeriv::grad(theta_ipl, x = theta, parsed_data = make_ppl(parsed_data),
+                 other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                                   re_only = TRUE,
+                                   n_fixed = 3,
+                                   stat = stat))
+})
+
+plot(test_thetas2$changing, likelihoods)
+text(test_thetas2$changing, likelihoods, round(gradients[1,], 2), adj = c(0, 0))
+text(test_thetas2$changing, likelihoods, round(gradients2[1,], 2), adj = c(0, 1))
+
+
+ests$theta
+coxme_fit$vcoef
+
+
+theta_ipl_gr_num(ests$theta,
+                 formula = my_formula,
+                 parsed_data = make_ppl(parsed_data),
+          other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                            re_only = TRUE,
+                            n_fixed = 3,
+                            stat = stat))
+
+
+
+
+test_thetas[max(theta_likelihoods) == theta_likelihoods,]
+
+coxme_fit$vcoef
+
+coxme_fit$loglik
+
+theta_ipl(unlist(coxme_fit$vcoef), formula = my_formula, parsed_data = make_ppl(parsed_data),
+          other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                            re_only = TRUE,
+                            n_fixed = 3,
+                            stat = stat))
+
+
+attr(ests, "theta_est")$hessian
+numDeriv::hessian(theta_ipl, x = ests$theta, parsed_data = make_ppl(parsed_data),
+               other_args = list(start_params = attr(ests, "beta_b_est")$par,
+                                 re_only = TRUE,
+                                 n_fixed = 3,
+                                 stat = stat))
+
+pracma::hessian(theta_ipl, x0 = ests2$theta, parsed_data = make_ppl(parsed_data),
+                other_args = list(start_params = attr(ests2, "beta_b_est")$par,
+                                  re_only = TRUE,
+                                  n_fixed = 3,
+                                  stat = stat))
+
+
+
+microbenchmark::microbenchmark(
+optim(par = ests$theta,
+                   fn = theta_ipl,
+                   gr = NULL,
+                   formula = my_formula,
+                   parsed_data = make_ppl(parsed_data),
+                   other_args = list(n_fixed = 3,
+                                     start_params = attr(ests, "beta_b_est")$par,
+                                     stat = stat,
+                                     re_only = TRUE),
+                   method = "L-BFGS-B",
+                   control = list(fnscale = -1),
+                   lower = 0.00001, upper = Inf,
+                   hessian = TRUE),
+optim(par = ests$theta,
+      fn = theta_ipl,
+      gr = NULL,
+      formula = my_formula,
+      parsed_data = make_ppl(parsed_data),
+      other_args = list(n_fixed = 3,
+                        start_params = attr(ests, "beta_b_est")$par,
+                        stat = stat,
+                        re_only = TRUE),
+      method = "L-BFGS-B",
+      control = list(fnscale = -1),
+      lower = 0.00001, upper = Inf))
+
+
+
+
+
+theta_est_test$hessian
+
+optimHess(ests$theta, fn = theta_ipl, gr = NULL, parsed_data = make_ppl(parsed_data),
+          other_args = list(n_fixed = 3,
+                            start_params = attr(ests, "beta_b_est")$par,
+                            stat = stat,
+                            re_only = TRUE),
+          control = list(fnscale = -1))
+
 
 theta_start <- get_start_theta(length(parsed_data$reTrms$flist))
 
@@ -42,18 +274,46 @@ start_params <- c(coef(fit0),
                         mean = 0,
                         sd = sqrt(theta_start[parsed_data$reTrms$Lind])))
 
-control.list <- function(re_only = TRUE, convergence_threshold = 0.00001, max_iter = 10){
-  list(re_only = re_only, convergence_threshold = convergence_threshold, max_iter = max_iter)
-}
-
+# debugonce(est_parameters)
 parameters <- est_parameters(my_formula, ds, method = "ppl",
                              control = control.list(max_iter = 100))
 
+# pull out estimates
+thetas <- Reduce("rbind", lapply(parameters$theta_est, "[[", "par"))
+
+theta_est <- data.frame(thetas)
+names(theta_est) <- paste("theta", seq_len(ncol(theta_est)), sep = "_")
+
+library(tidyverse)
+tidyr::pivot_longer(theta_est, cols = everything()) %>%
+  group_by(name) %>%
+  mutate(iteration = row_number()) %>%
+  ggplot(aes(iteration, value)) + geom_point() + facet_grid(vars(name))
+
+# betas
+betas <- Reduce("rbind", lapply(parameters$beta_b_est, "[[", "par"))
+
+beta_est <- data.frame(betas) %>% select(starts_with("X"))
+# names(theta_est) <- paste("theta", seq_len(ncol(theta_est)), sep = "_")
+
+tidyr::pivot_longer(beta_est, cols = everything()) %>%
+  group_by(name) %>%
+  mutate(iteration = row_number()) %>%
+  ggplot(aes(iteration, value)) + geom_point() + facet_grid(vars(name))
+
+
+
 
 parameters2 <- est_parameters(my_formula, ds, method = "ppl",
-                              start_params = c(parameters$beta, parameters$b),
-                              theta_start = parameters$theta,
-                              control = control.list())
+                              start_params = tail(parameters$beta_b_est,1)[[1]]$par,
+                              theta_start = tail(parameters$theta_est,1)[[1]]$par,
+                              control = control.list(max_iter = 0))
+
+parameters$theta_est[[1]]$par
+parameters$theta_est[[101]]$par
+parameters$theta_est[[2]]$par
+
+
 
 attr(parameters2, "iterations")
 attr(parameters, "iterations")
