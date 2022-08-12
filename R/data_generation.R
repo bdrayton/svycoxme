@@ -54,7 +54,13 @@ check_var_labels <- function(var_labels, dist_labels){
 #'
 #' @export
 
-one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_effect_variance = list(), seed = NULL){
+one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_effect_variance = list(), seed = NULL,
+                        random_effect_seed = NULL){
+
+  arbitraty_seed <- runif(1, -99999, 99999)
+
+  if(!is.null(random_effect_seed) & (length(random_effect_variance) != length(random_effect_seed)))
+    stop("If random_effect_seed is not NULL, it must be the same length as random_effect_variance")
 
   original_formula <- formula
 
@@ -93,6 +99,10 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
 
   vars_df <- list2DF(vars)
 
+  error <- lazyeval::f_eval(dists$error, data = dist_args)
+
+  vars_df$stat <- lazyeval::f_eval(dists$stat, data = dist_args)
+
   lp_random_effects <- list()
 
   if(length(barnames)) {
@@ -103,30 +113,54 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
 
     parsed_data <- lme4::lFormula(formula, data = vars_df)
 
+    vars_df <- dplyr::select(vars_df, -ytemp)
+
     # for each random effect term, need to generate the random effect terms, and join them to the data.
     # if terms don't exist in the data, they will be in flist.
 
     re_terms <- names(parsed_data$reTrms$cnms)
+    names(re_terms) <- re_terms
 
     if(length(re_terms) != length(random_effect_variance))
       stop("I need one variance for each random effect term. Note that (1 | M1/M2) breaks down into M1, M2 and M1:M2")
 
-    lp_random_effects <- sapply(re_terms, function(re){
+# save the seed. It will be restored after this.
+
+    lp_random_effects_list <- lapply(re_terms, function(re){
 
       re_factor <- parsed_data$reTrms$flist[[re]]
 
       group_counts <- table(re_factor)
+
+      # set a seed
+      if(!is.null(random_effect_seed)) set.seed(random_effect_seed[[re]])
 
       b <- rnorm(length(group_counts), mean = 0, sd = sqrt(random_effect_variance[[re]]))
 
       b_rep <- dplyr::left_join(data.frame(re_name = re_factor),
                                 data.frame(re_name = names(group_counts), re = b), by = "re_name")
 
-      b_rep$re
+      # This is the random effect repeated for each observation
+      re <- b_rep$re
 
-    }, simplify = "matrix")
+      # this is the unique random effects
+      names(b) <- names(group_counts)
+      attr(re, "random_effects") <- b
+
+      re
+
+    })
+
+    lp_random_effects <- Reduce("cbind", lp_random_effects_list)
+
+    random_effects <- lapply(lp_random_effects_list, attr, "random_effects")
+
+    # reset randomness
+    set.seed(arbitraty_seed)
 
   }
+
+
 
   # transpose non-zero length coefficients
   if(length(coefficients))
@@ -139,8 +173,6 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
 
   risk_score_parts_matrix <- Reduce(cbind, risk_score_parts_list)
 
-  error <- lazyeval::f_eval(dists$error, data = dist_args)
-
   if(!is.null(risk_score_parts_matrix)) {
     risk_score <- .rowSums(risk_score_parts_matrix,
                            m = nrow(risk_score_parts_matrix), n = ncol(risk_score_parts_matrix))
@@ -151,11 +183,10 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
 
   vars_df$stat_time <- exp(-risk_score) * error
 
-  vars_df$stat <- lazyeval::f_eval(dists$stat, data = dist_args)
 
   # add random effects as an attribute
 
-  attr(vars_df, "random_effects") <- lp_random_effects
+  attr(vars_df, "random_effects") <- random_effects
 
   vars_df
 

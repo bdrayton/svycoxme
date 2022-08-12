@@ -509,7 +509,7 @@ theta_ipl <- function(theta, formula, parsed_data, other_args){
                 parsed_data = parsed_data,
                 other_args = c(list(theta = theta), other_args),
                 method = "BFGS",
-                control = list(fnscale = -1),
+                control = list(fnscale = -1, reltol = other_args$reltol),
                 hessian = TRUE)
 
   # In Ripatti Palmgren they only use the b part of the Hessian matrix.
@@ -557,7 +557,7 @@ theta_ipl_gr <- function(theta, formula, parsed_data, other_args){
                 parsed_data = parsed_data,
                 other_args = c(list(theta = theta), other_args),
                 method = "BFGS",
-                control = list(fnscale = -1),
+                control = list(fnscale = -1, reltol = other_args$reltol),
                 hessian = TRUE)
 
   b <- Matrix::Matrix(ests$par[-seq_len(other_args$n_fixed)], ncol = 1)
@@ -629,9 +629,13 @@ get_start_theta <- function(n_theta){
 #' @export
 
 
-control.list <- function(method = "ppl", grad = TRUE, re_only = TRUE, convergence_threshold = 0.00001, max_iter = 10){
+control.list <- function(method = "ppl", grad = FALSE, re_only = TRUE,
+                         factr = 1e7,
+                         reltol = sqrt(.Machine$double.eps),
+                         max_iter = 100){
 
-  list(method = method, grad = grad, re_only = re_only, convergence_threshold = convergence_threshold, max_iter = max_iter)
+  list(method = method, grad = grad, re_only = re_only,
+       factr = factr, reltol = reltol, max_iter = max_iter)
 
 }
 
@@ -695,6 +699,7 @@ est_parameters <- function(formula, data, start_params = NULL, theta_start = NUL
   # assumes that the response is of the form Surv(time, stat). Behaviour for other Surv formats is undefined.
   stat <- Matrix(unclass(parsed_data$fr[,1])[, "status"], ncol = 1)
 
+  # this one with the gradient doesn't really work very well. might work by tinkering with reltol and abstol
 if(control$grad) {
 
   theta_est <- optim(par = theta_start,
@@ -705,9 +710,10 @@ if(control$grad) {
                      other_args = list(n_fixed = n_fixed,
                                        start_params = start_params,
                                        stat = stat,
-                                       re_only = control$re_only),
+                                       re_only = control$re_only,
+                                       reltol = control$reltol),
                      method = "L-BFGS-B",
-                     control = list(fnscale = -1),
+                     control = list(fnscale = -1, factr = control$factr),
                      lower = 0.00001, upper = Inf,
                      hessian = TRUE)
 } else {
@@ -720,9 +726,10 @@ if(control$grad) {
                      other_args = list(n_fixed = n_fixed,
                                        start_params = start_params,
                                        stat = stat,
-                                       re_only = control$re_only),
+                                       re_only = control$re_only,
+                                       reltol = control$reltol),
                      method = "L-BFGS-B",
-                     control = list(fnscale = -1),
+                     control = list(fnscale = -1, factr = control$factr),
                      lower = 0.00001, upper = Inf,
                      hessian = TRUE)
 }
@@ -735,7 +742,7 @@ if(control$grad) {
                       other_args = list(theta = theta_est$par,
                                         stat = stat),
                       method = "BFGS",
-                      control = list(fnscale = -1),
+                      control = list(fnscale = -1, reltol = control$reltol),
                       hessian = TRUE)
 
   # # for writing estimation history.
