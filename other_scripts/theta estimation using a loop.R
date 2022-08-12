@@ -21,7 +21,7 @@ ests_list <- list()
 
 # debugonce(est_parameters)
 ests_list[[1]] <- est_parameters(my_formula, data = ds,
-                                 control = control.list(factr = 1e-3,
+                                 control = control.list(factr = 1e3,
                                                         reltol = 1e-13))
 
 for(i in 1:10) {
@@ -30,19 +30,24 @@ for(i in 1:10) {
 
   ests_list[[i + 1]] <- est_parameters(my_formula, data = ds,
                                        start_params = c(ests_list[[i]]$beta, ests_list[[i]]$b),
-                                       theta_start = ests_list[[i]]$theta)
+                                       theta_start = ests_list[[i]]$theta,
+                                       control = control.list(factr = 1e3,
+                                                              reltol = 1e-13))
 
 }
 
 
 # extract theta
 lapply(ests_list, names)
-thetas <- sapply(ests_list, "[[", "theta", simplify = "matrix")
-
-thetas_df <- data.frame(thetas) |>
+thetas_df <- sapply(ests_list, "[[", "theta", simplify = "matrix") |>
+  data.frame() |>
   mutate(theta = factor(c("theta M1", "theta M2")), .before = everything()) |>
   pivot_longer(cols = X1:X11) |>
   mutate(Iteration = factor(name, levels = paste0("X", 1:11), labels = as.character(1:11)))
+
+thetas_df %>%
+  group_by(theta) %>%
+  summarise(min(value) - max(value))
 
 #zigzagging?
 ggplot(thetas_df, aes(Iteration, value)) + geom_point() +
@@ -59,6 +64,25 @@ betas_df <- sapply(ests_list, "[[", "beta", simplify = "matrix") |>
 #zigzagging?
 ggplot(betas_df, aes(Iteration, value)) + geom_point() +
   facet_grid(rows = vars(beta), scales = "free")
+
+betas_df %>%
+  group_by(beta) %>%
+  summarise(min(value) - max(value))
+
+
+# what's happening with the hessians now?
+
+lapply(ests_list, function(x){
+  sqrt(diag(-solve(attr(x, "theta_est")$hessian)))
+})
+
+
+
+
+
+
+
+
 
 
 # show what happens with iterative optimisation - theta ipl is not quadratic.
