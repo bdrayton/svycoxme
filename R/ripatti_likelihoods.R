@@ -63,7 +63,7 @@ lp.ppl <- function(params, formula, parsed_data, other_args) {
   b <- params[-beta_index]
 
   # drop the intercept column from the X model.matrix
-  risk_score <- parsed_data$X[, -1] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
+  risk_score <- parsed_data$X[, -1, drop = FALSE] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
 
   exp_risk_score <- exp(risk_score)
 
@@ -111,7 +111,7 @@ lp.pplextra <- function(params, formula, parsed_data, other_args) {
   b <- params[-beta_index]
 
   # drop the intercept column from the X model.matrix
-  risk_score <- parsed_data$X[, -1] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
+  risk_score <- parsed_data$X[, -1, drop = FALSE] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
 
   exp_risk_score <- exp(risk_score)
 
@@ -206,7 +206,7 @@ lp_gr_beta.ppl <- function(params, formula, parsed_data, other_args) {
   beta <- params[beta_index]
   b <- params[-beta_index]
 
-  risk_score <- parsed_data$X[, -1] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
+  risk_score <- parsed_data$X[, -1, drop = FALSE] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
 
   exp_risk_score <- exp(risk_score)
 
@@ -229,7 +229,7 @@ lp_gr_beta.ppl <- function(params, formula, parsed_data, other_args) {
 
   # stat <- Matrix(ds_sorted$stat, ncol = 1)
 
-  likelihood_gradients <- colSums(other_args$stat * (parsed_data$X[, -1] - at_risk_X/at_risk))
+  likelihood_gradients <- colSums(other_args$stat * (parsed_data$X[, -1, drop = FALSE] - at_risk_X/at_risk))
 
   likelihood_gradients
 
@@ -376,7 +376,7 @@ lp_gr_b.ppl <- function(params, formula, parsed_data, other_args) {
   beta <- params[beta_index]
   b <- params[-beta_index]
 
-  risk_score <- parsed_data$X[, -1] %*% beta + crossprod(parsed_data$reTrms$Zt, b)
+  risk_score <- parsed_data$X[, -1, drop = FALSE] %*% beta + crossprod(parsed_data$reTrms$Zt, b)
 
   exp_risk_score <- exp(risk_score)
 
@@ -399,7 +399,7 @@ lp_gr_b.ppl <- function(params, formula, parsed_data, other_args) {
 
   # stat <- Matrix(ds_sorted$stat, ncol = 1)
 
-  likelihood_gradients_unpenalised <- colSums(other_args$stat * (t(parsed_data$reTrms$Zt) - at_risk_Z/at_risk))
+  likelihood_gradients_unpenalised <- Matrix::colSums(other_args$stat * (t(parsed_data$reTrms$Zt) - at_risk_Z/at_risk))
 
   parsed_data$reTrms$Lambdat@x <- other_args$theta[parsed_data$reTrms$Lind]
 
@@ -443,7 +443,9 @@ make_ppl <- function(data){
 
   # stopifnot(is.data.frame(data))
 
-  class(data) <- c("ppl", oldClass(data))
+  # added in unique.default as in I()
+
+  class(data) <- unique.default(c("ppl", oldClass(data)))
 
   data
 
@@ -498,9 +500,9 @@ fast_risk_sets <- function(a_matrix){
 theta_ipl <- function(theta, formula, parsed_data, other_args){
 
   # set up D
-  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
-
   D <- parsed_data$reTrms$Lambdat
+
+  D@x <- theta[parsed_data$reTrms$Lind]
 
   ests <- optim(par = other_args$start_params,
                 fn = lp,
@@ -515,12 +517,33 @@ theta_ipl <- function(theta, formula, parsed_data, other_args){
   # In Ripatti Palmgren they only use the b part of the Hessian matrix.
   if(other_args$re_only) {
     # take the part of the hessian associated with the random effects only
-    Kbb <- ests$hessian[-(1:other_args$n_fixed), -(1:other_args$n_fixed)]
+    Kbb <- ests$hessian[-seq(other_args$n_fixed), -seq(other_args$n_fixed)]
   } else {
     Kbb <- ests$hessian
   }
 
-  c(-0.5 * determinant(D)$modulus -0.5 * determinant(Kbb)$modulus + ests$value)
+  detD <- determinant(D)$modulus
+  detKbb <- determinant(Kbb)$modulus
+
+  return_value <- c(-0.5 * detD -0.5 * detKbb + ests$value)
+
+  attr(return_value, "beta_b") <- ests$par
+
+  attr(return_value, "b") <- ests$par[-seq(other_args$n_fixed)]
+
+  attr(return_value, "det(D)") <- c(detD)
+
+  attr(return_value, "D") <- D
+
+  attr(return_value, "Kbb") <- Kbb
+
+  attr(return_value, "detKbb") <- c(detKbb)
+
+  attr(return_value, "value") <- ests$value
+
+
+
+  return_value
 
 }
 
@@ -545,7 +568,7 @@ theta_ipl_gr <- function(theta, formula, parsed_data, other_args){
 
     d_D_d_theta[[i]] <- parsed_data$reTrms$Lambdat
 
-    d_D_d_theta[[i]]@x <- c(theta[i], 0)[(parsed_data$reTrms$Lind != i) + 1]
+    d_D_d_theta[[i]]@x <- c(1, 0)[(parsed_data$reTrms$Lind != i) + 1]
 
   }
 
@@ -572,20 +595,86 @@ theta_ipl_gr <- function(theta, formula, parsed_data, other_args){
 
   Kbb_inv <- solve(Kbb)
 
-  grads <- lapply(d_D_d_theta, function(dD){
+  calc_grad <- function(dD){
 
     grad <- -0.5 * ( sum(diag(D_inv %*% dD))
-             - sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
-             - t(b)%*%D_inv%*%dD%*%D_inv%*%b )
+                     - sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
+                     - t(b)%*%D_inv%*%dD%*%D_inv%*%b )
 
     grad@x
 
-  })
+  }
+
+  grads <- lapply(d_D_d_theta, calc_grad)
 
   unlist(grads)
 
 }
 
+
+#' gradient for theta likelihood
+#'
+#' @export
+#'
+
+theta_ipl_gr2 <- function(theta, formula, parsed_data, other_args, ests){
+
+  # set up D
+  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
+
+  D <- parsed_data$reTrms$Lambdat
+
+  D_inv <- solve(D)
+
+  # first derivatives of D
+  d_D_d_theta <- vector(mode = "list", length = length(parsed_data$reTrms$theta))
+
+  for (i in seq_along(parsed_data$reTrms$theta)) {
+
+    d_D_d_theta[[i]] <- parsed_data$reTrms$Lambdat
+
+    d_D_d_theta[[i]]@x <- c(1, 0)[(parsed_data$reTrms$Lind != i) + 1]
+
+  }
+
+
+  # ests <- optim(par = other_args$start_params,
+                # fn = lp,
+                # gr = lp_gr,
+                # formula = formula,
+                # parsed_data = parsed_data,
+                # other_args = c(list(theta = theta), other_args),
+                # method = "BFGS",
+                # control = list(fnscale = -1, reltol = other_args$reltol),
+                # hessian = TRUE)
+
+  b <- Matrix::Matrix(ests$par[-seq_len(other_args$n_fixed)], ncol = 1)
+
+  # In Ripatti Palmgren they only use the b part of the Hessian matrix.
+  if(other_args$re_only) {
+    # take the part of the hessian associated with the random effects only
+    Kbb <- ests$hessian[-(1:other_args$n_fixed), -(1:other_args$n_fixed)]
+  } else {
+    Kbb <- ests$hessian
+  }
+
+  Kbb_inv <- solve(Kbb)
+
+  calc_grad <- function(dD){
+
+    grad <- -0.5 * ( sum(diag(D_inv %*% dD))
+                     - sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
+                     - t(b)%*%D_inv%*%dD%*%D_inv%*%b )
+
+    grad@x
+
+  }
+
+  grads <- lapply(d_D_d_theta, calc_grad)
+
+  unlist(grads)
+
+}
 
 
 
@@ -632,10 +721,12 @@ get_start_theta <- function(n_theta){
 control.list <- function(method = "ppl", grad = FALSE, re_only = TRUE,
                          factr = 1e7,
                          reltol = sqrt(.Machine$double.eps),
+                         ndeps = 1e-3,
                          max_iter = 100){
 
   list(method = method, grad = grad, re_only = re_only,
-       factr = factr, reltol = reltol, max_iter = max_iter)
+       factr = factr, reltol = reltol, ndeps = ndeps,
+       max_iter = max_iter)
 
 }
 
@@ -729,7 +820,7 @@ if(control$grad) {
                                        re_only = control$re_only,
                                        reltol = control$reltol),
                      method = "L-BFGS-B",
-                     control = list(fnscale = -1, factr = control$factr),
+                     control = list(fnscale = -1, factr = control$factr, ndeps = control$ndeps),
                      lower = 0.00001, upper = Inf,
                      hessian = TRUE)
 }
