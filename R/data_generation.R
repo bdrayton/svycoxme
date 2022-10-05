@@ -158,6 +158,8 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
     # reset randomness
     set.seed(arbitraty_seed)
 
+  } else {
+    random_effects <- NULL
   }
 
 

@@ -157,20 +157,16 @@ theta_ipl_est <- theta_ipl(theta_max, formula = my_formula, parsed_data = make_p
                                              re_only = TRUE,
                                              reltol = 1e-13))
 
+# theta_ipl_fn_gr(formula = my_formula,
+#                parsed_data = make_ppl(parsed_data),
+#                other_args = list(n_fixed = n_fixed,
+#                                  start_params = start_params,
+#                                  stat = stat,
+#                                  re_only = TRUE,
+#                                  reltol = 1e-13))
+#
 
-
-do.call(optim, c(list(par=paramvec,method="BFGS"),optfngr() ))
-
-theta_ipl_fn_gr(formula = my_formula,
-               parsed_data = make_ppl(parsed_data),
-               other_args = list(n_fixed = n_fixed,
-                                 start_params = start_params,
-                                 stat = stat,
-                                 re_only = TRUE,
-                                 reltol = 1e-13))
-
-
-do.call(optim, c(list(par = theta_start,
+e1 <- do.call(optim, c(list(par = theta_start,
                     method = "L-BFGS-B",
                     control = list(fnscale = -1, factr = 1e3),
                     lower = 0.00001, upper = Inf,
@@ -187,7 +183,7 @@ do.call(optim, c(list(par = theta_start,
 
 # try without the memoisation.
 
-do.call(optim, c(list(par = theta_start,
+e2 <- do.call(optim, c(list(par = theta_start,
                       method = "L-BFGS-B",
                       control = list(fnscale = -1, factr = 1e3),
                       lower = 0.00001, upper = Inf,

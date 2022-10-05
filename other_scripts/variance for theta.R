@@ -8,6 +8,7 @@ my_k = 50
 my_nk = 10
 my_theta = c(M1 = 2, M2 = 1)
 my_beta = c(1, -0.7, 0.5)
+my_ndeps = rep(0.001, length(my_theta))
 
 ds <- one_dataset(my_formula,
                   dists = list(X1 = ~rnorm(n),
@@ -24,9 +25,9 @@ ds <- one_dataset(my_formula,
 
 coxme_fit <- coxme::coxme(my_formula, data = ds)
 
-ests <- est_parameters(my_formula, ds, control = control.list(grad = FALSE))
+ests <- est_parameters(my_formula, ds, control = control.list(grad = FALSE, ndeps = my_ndeps))
 
-ests_w_gr  <- est_parameters(my_formula, ds, control = control.list(grad = TRUE))
+ests_w_gr  <- est_parameters(my_formula, ds, control = control.list(grad = TRUE, ndeps = my_ndeps))
 
 
 ests2 <- est_parameters(my_formula, ds, start_params = c(ests$beta, ests$b), theta_start = ests$theta)
@@ -410,7 +411,7 @@ for (i in seq_along(theta)) {
     term1_matrix[i, j] <- -sum(diag(D_inv %*% d_D_d_theta[[j]] %*% D_inv %*% d_D_d_theta[[i]]))
 
     term2_matrix[i, j] <- sum(diag(K_inv %*% D_inv %*% d_D_d_theta[[j]] %*% D_inv %*% K_inv %*% D_inv %*% d_D_d_theta[[i]] %*% D_inv
-                                      +K_inv %*% (D_inv %*% d_D_d_theta[[j]] %*% D_inv %*% d_D_d_theta[[i]] %*% D_inv +
+                                      -K_inv %*% (D_inv %*% d_D_d_theta[[j]] %*% D_inv %*% d_D_d_theta[[i]] %*% D_inv +
                                                     D_inv %*% d_D_d_theta[[i]] %*% D_inv %*% d_D_d_theta[[j]] %*% D_inv)))
 
     term3_temp <- t(b) %*% (D_inv %*% d_D_d_theta[[j]] %*% D_inv %*% d_D_d_theta[[i]] %*% D_inv +
@@ -428,6 +429,7 @@ term1_matrix
 term2_matrix
 term3_matrix
 
+-0.5 * (-term1_matrix + term2_matrix + term3_matrix)
 
 
 #

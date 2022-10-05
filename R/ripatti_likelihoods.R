@@ -676,7 +676,67 @@ theta_ipl_gr2 <- function(theta, formula, parsed_data, other_args, ests){
 
 }
 
+#' Memoised likelihood and gradient, for use in optimisation.
+#'
+#' @export
+#'
 
+theta_ipl_fn_gr <- function(formula, parsed_data, other_args) {
+
+  quant1 <- NULL
+  prev_param <- NULL
+
+  update_theta_ipl <- function(param_vec) {
+    if (!identical(param_vec, prev_param)) {
+      theta_ipl_est <<- theta_ipl(theta = param_vec, formula = formula,
+                                  parsed_data = parsed_data, other_args = other_args)
+      prev_param <<- param_vec
+    }
+  }
+
+  optfunc<-function(param_vec){
+    update_theta_ipl(param_vec)
+    ll<-c(theta_ipl_est)
+    return(ll)
+  }
+
+  optgr<-function(param_vec){
+    update_theta_ipl(param_vec)
+
+    d_D_d_theta <- vector(mode = "list", length = length(parsed_data$reTrms$theta))
+
+    for (j in seq_along(parsed_data$reTrms$theta)) {
+
+      d_D_d_theta[[j]] <- parsed_data$reTrms$Lambdat
+
+      d_D_d_theta[[j]]@x <- c(1, 0)[(parsed_data$reTrms$Lind != j) + 1]
+
+    }
+
+    b <- attr(theta_ipl_est, "b")
+    Kbb <- attr(theta_ipl_est, "Kbb")
+    Kbb_inv <- solve(Kbb)
+    D <- attr(theta_ipl_est, "D")
+    D_inv <- Matrix::solve(D)
+
+    calc_grad <- function(dD){
+
+      grad <- -0.5 * ( sum(diag( D_inv %*% dD ))
+                       + sum(diag( Kbb_inv %*% D_inv %*% dD %*% D_inv ))
+                       - t(b) %*% D_inv %*% dD %*% D_inv %*% b )
+
+      grad@x
+
+    }
+
+    grads <- unlist(lapply(d_D_d_theta, calc_grad))
+
+    return(grads)
+  }
+
+  return(list(fn = optfunc, gr = optgr))
+
+}
 
 
 
@@ -790,23 +850,39 @@ est_parameters <- function(formula, data, start_params = NULL, theta_start = NUL
   # assumes that the response is of the form Surv(time, stat). Behaviour for other Surv formats is undefined.
   stat <- Matrix(unclass(parsed_data$fr[,1])[, "status"], ncol = 1)
 
-  # this one with the gradient doesn't really work very well. might work by tinkering with reltol and abstol
 if(control$grad) {
 
-  theta_est <- optim(par = theta_start,
-                     fn = theta_ipl,
-                     gr = theta_ipl_gr_num,
+  # use memoised gr and fn
+
+  theta_est <- do.call(optim, c(list(par = theta_start,
+                        method = "L-BFGS-B",
+                        control = list(fnscale = -1, factr = control$factr, ndeps = control$ndeps),
+                        lower = 0.00001, upper = Inf,
+                        hessian = TRUE),
+                   theta_ipl_fn_gr(
                      formula = formula,
                      parsed_data = parsed_data,
                      other_args = list(n_fixed = n_fixed,
                                        start_params = start_params,
                                        stat = stat,
                                        re_only = control$re_only,
-                                       reltol = control$reltol),
-                     method = "L-BFGS-B",
-                     control = list(fnscale = -1, factr = control$factr),
-                     lower = 0.00001, upper = Inf,
-                     hessian = TRUE)
+                                       reltol = control$reltol))))
+
+  ## this one with the gradient doesn't really work very well. might work by tinkering with reltol and abstol
+  # theta_est <- optim(par = theta_start,
+  #                    fn = theta_ipl,
+  #                    gr = theta_ipl_gr_num,
+  #                    formula = formula,
+  #                    parsed_data = parsed_data,
+  #                    other_args = list(n_fixed = n_fixed,
+  #                                      start_params = start_params,
+  #                                      stat = stat,
+  #                                      re_only = control$re_only,
+  #                                      reltol = control$reltol),
+  #                    method = "L-BFGS-B",
+  #                    control = list(fnscale = -1, factr = control$factr),
+  #                    lower = 0.00001, upper = Inf,
+  #                    hessian = TRUE)
 } else {
 
   theta_est <- optim(par = theta_start,
@@ -1082,8 +1158,88 @@ est_parameters_loop <- function(formula, data, method, start_params = NULL, thet
 
 
 
+#' calculate gradient for theta_ipl using K prime prime, instead of subbing in K_ppl prime prime.
+#'
+#'
 
+theta_ipl_gr3 <- function(theta, formula, parsed_data, other_args) {
 
+  # set up D
+  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
+
+  D <- parsed_data$reTrms$Lambdat
+
+  D_inverse <- Matrix::solve(D)
+
+  # first derivatives of D
+  d_D_d_theta <- vector(mode = "list", length = length(parsed_data$reTrms$theta))
+
+  for (i in seq_along(parsed_data$reTrms$theta)) {
+
+    d_D_d_theta[[i]] <- parsed_data$reTrms$Lambdat
+
+    d_D_d_theta[[i]]@x <- c(1, 0)[(parsed_data$reTrms$Lind != i) + 1]
+
+  }
+
+  ests <- optim(par = other_args$start_params,
+                fn = lp,
+                gr = lp_gr,
+                formula = formula,
+                parsed_data = parsed_data,
+                other_args = c(list(theta = theta), other_args),
+                method = "BFGS",
+                control = list(fnscale = -1, reltol = other_args$reltol),
+                hessian = TRUE)
+
+  beta <- Matrix::Matrix(ests$par[seq_len(other_args$n_fixed)], ncol = 1)
+  b <- Matrix::Matrix(ests$par[-seq_len(other_args$n_fixed)], ncol = 1)
+
+  # drop the intercept column from the X model.matrix
+  risk_score <- parsed_data$X[, -1, drop = FALSE] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
+
+  exp_risk_score <- exp(risk_score)
+
+  # calculate risk sets
+  rev_exp_risk_score <- exp_risk_score
+  rev_exp_risk_score@x <- rev(exp_risk_score@x)
+
+  at_risk <- Matrix::Matrix(rev(cumsum(rev_exp_risk_score)), ncol = 1)
+
+  # Need cumulative hazard (breslow), and Zt(Z)
+  cumulative_hazard <- Matrix::Matrix(cumsum(other_args$stat/at_risk), ncol = 1)
+
+  Zt <- parsed_data$reTrms$Zt
+
+  Zt_ncol <- ncol(Zt)
+
+  ZtZ_exp_risk_score <- vector(mode = "list", length = Zt_ncol)
+
+  for (i in seq_len(Zt_ncol)) {
+
+    ZtZ_exp_risk_score[[i]] <-  cumulative_hazard[i] * exp_risk_score[i] * Matrix::tcrossprod(Zt[,i, drop = FALSE])
+
+  }
+
+  K <- Reduce("+", ZtZ_exp_risk_score) - D_inverse
+
+  K_inv <- solve(K)
+
+  calc_grad <- function(dD){
+
+    grad <- -0.5 * ( sum(diag(D_inverse %*% dD))
+                     - sum(diag(K_inv %*% D_inverse %*%dD%*%D_inverse))
+                     - t(b)%*%D_inverse%*%dD%*%D_inverse%*%b )
+
+    grad@x
+
+  }
+
+  grads <- lapply(d_D_d_theta, calc_grad)
+
+  unlist(grads)
+
+}
 
 
 
