@@ -10,7 +10,8 @@ one_dataset(
   dist_args,
   coefficients = c(),
   random_effect_variance = list(),
-  seed = NULL
+  seed = NULL,
+  random_effect_seed = NULL
 )
 }
 \arguments{

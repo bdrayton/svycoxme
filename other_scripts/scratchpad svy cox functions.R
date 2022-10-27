@@ -47,6 +47,16 @@ ds <- one_dataset(~X1 + X2 + X3 + (1 | M),
 
 coxfit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | M), data = ds)
 
+formula(coxfit)
+subset
+weights
+na.action
+init
+
+
+
+residuals(coxfit)
+
 summary(coxfit)
 
 # generate a population
@@ -282,7 +292,43 @@ one_rep <- function(){
 }
 
 one_rep()
+############
 
+debug(survey:::svycoxph.svyrep.design)
+
+one_rep <- function(){
+
+  sample_clusters <- dplyr::bind_rows(
+    pop |>
+      dplyr::filter(stratum == 0) |>
+      dplyr::distinct(stratum, id) |>
+      dplyr::mutate(prob = 50/dplyr::n()) |>
+      dplyr::slice_sample(n = 50),
+    pop |>
+      dplyr::filter(stratum == 1) |>
+      dplyr::distinct(stratum, id) |>
+      dplyr::mutate(prob = 50/dplyr::n()) |>
+      dplyr::slice_sample(n = 50)
+  ) |> dplyr::select(stratum, id, prob)
+
+  sample_data2 <- dplyr::left_join(sample_clusters, pop, by = c("stratum", "id"))
+
+  d2 <- svydesign(~id, probs = ~prob, strata = ~stratum, data = sample_data2)
+  d3 <- as.svrepdesign(d2)
+  svycoxph_fit_d2 <- svycoxph(Surv(stat_time, stat) ~ X1 + X2 + X3, design = d2)
+  svycoxph_fit_d3 <- svycoxph(Surv(stat_time, stat) ~ X1 + X2 + X3, design = d3)
+
+  data.frame(model = rep(c("svycox", "svrepcox"), each = length(true_coefs)),
+             X = names(coef(svycoxph_fit_d2)),
+             true_value = true_coefs,
+             estimate = c(coef(svycoxph_fit_d2), coef(svycoxph_fit_d3)),
+             rbind(confint(svycoxph_fit_d2),
+                   confint(svycoxph_fit_d3))) |>
+    dplyr::mutate(error = estimate - true_value,
+                  hit = true_value >= X2.5.. & true_value <= X97.5..)
+}
+
+one_rep()
 
 ############
 one_rep <- function(){

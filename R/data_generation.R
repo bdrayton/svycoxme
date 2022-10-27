@@ -185,6 +185,43 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
 
   vars_df$stat_time <- exp(-risk_score) * error
 
+  # add random effects as variables
+  # for each item in lp_random_effects_list, join it to vars_df.
+
+  for (i in seq_along(lp_random_effects_list)){
+
+    # much simpler
+    var_name <- re_terms[i]
+
+    vars_df[, paste0(var_name, "_re")] <- lp_random_effects_list[[i]]
+    #
+    #
+    # join_by <- var_name
+    # var_re <- lp_random_effects_list[[i]]
+    # var_levels <- names(var_re)
+    #
+    # re_temp <- setNames(data.frame(var_levels, var_re), c(var_name, paste(var_name, "ranef", sep = "_")))
+    #
+    # # any names like M1:M2, M1.M2, M1/M2 need to be split
+    # name_get_split <- grepl("\\.|:|/", var_name)
+    #
+    # if (name_get_split) {
+    #
+    #   sep <- gsub(".*([\\.|:|/]).*", "\\1")
+    #
+    #   new_cols <- unlist(strsplit(var_name, sep, fixed = TRUE))
+    #   join_by <- var_name
+    #
+    #   # don't need sep it seems. Good because '.' would need to be masked
+    #   re_temp <- tidyr::separate(re_temp,
+    #                              col = dplyr::all_of(var_name),
+    #                              into = new_cols)
+
+    # }
+    #
+    # vars_df <- dplyr::left_join(vars_df, by = join_by)
+
+  }
 
   # add random effects as an attribute
 
@@ -193,3 +230,6 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
   vars_df
 
 }
+
+
+

@@ -7,10 +7,9 @@
 est_parameters(
   formula,
   data,
-  method,
   start_params = NULL,
   theta_start = NULL,
-  control = list(re_only = TRUE)
+  control = control.list()
 )
 }
 \description{
