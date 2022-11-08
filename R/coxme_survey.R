@@ -162,6 +162,8 @@ svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...)
 #'
 #' function for rep weight designs
 #'
+#' @import survey
+#'
 #' @export
 
 svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NULL, ...,
