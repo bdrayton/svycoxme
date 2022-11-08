@@ -198,6 +198,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   #   warning("svycoxph does not support penalised terms")
   nas <- attr(full$model, "na.action")
   betas <- matrix(ncol = length(coef(full)), nrow = ncol(design$repweights))
+  thetas <- matrix(ncol = length(coxme::VarCorr(full)), nrow = ncol(design$repweights))
   wts <- design$repweights
   if (!design$combined.weights) {
     pw1 <- pwts
@@ -210,6 +211,8 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   if (length(nas))
     wts <- wts[-nas, ]
   beta0 <- coef(full)
+  # vinit needs an unnamed list of start values, matched by position.
+  theta0 <- unname(lapply(coxme::VarCorr(full), unname))
   EPSILON <- 1e-10
 
   # if (full$method %in% c("efron", "breslow")) {
@@ -224,6 +227,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   ## Or would it be better to use coxph.fit, with an offset term?
 
   g$init <- beta0
+  g$vinit <- theta0
 
 ## Ignore multicore for now
   # if (multicore) {
@@ -238,7 +242,10 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
     for (i in 1:ncol(wts)) {
 
       .survey.prob.weights <- as.vector(wts[,i]) * pw1 + EPSILON
-      betas[i, ] <- with(data, eval(g))$coef
+      fit <- with(data, eval(g))
+
+      betas[i, ] <- coef(fit)
+      thetas[i, ] <- unlist(coxme::VarCorr(fit))
 
     }
   # }
@@ -246,6 +253,10 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
     design <- design[-nas, ]
   v <- svrVar(betas, scale, rscales, mse = design$mse, coef = beta0)
   full$var <- v
+  # add in stuff for bootstrapping theta
+  v <- svrVar(thetas, scale, rscales, mse = FALSE, coef = theta0)
+  full$vvar <- v
+
   if (return.replicates) {
     attr(betas, "scale") <- design$scale
     attr(betas, "rscales") <- design$rscales
