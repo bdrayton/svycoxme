@@ -5,7 +5,7 @@
 \title{svycoxph
 overwrite survey:: method with my own to see if the way i'm assigning weights in the replicates is causing the error.}
 \usage{
-svycoxph.svyrep.design(
+\method{svycoxph}{svyrep.design}(
   formula,
   design,
   subset = NULL,

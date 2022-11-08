@@ -68,7 +68,7 @@ process_re <- function(re, re_name, re_vars, re_data, id_col) {
     name_order <- order(name_pos_this_term)
 
     # break the value names into columns of re levels
-    levels <- Reduce(rbind, strsplit(names(re), split = sep, fixed = TRUE)) |> data.frame()
+    levels <- data.frame(Reduce(rbind, strsplit(names(re), split = sep, fixed = TRUE)) )
 
     # label with the re variable name
     names(levels) <- re_vars_this_term[name_order]
