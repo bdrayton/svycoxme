@@ -6,7 +6,7 @@
 #' for theta = 2, I expect ~20% errors.
 #' 
 
-nreps = 8 # reps per theta
+nreps = 100 # reps per theta
 my_theta = 2
 
 true_coefs = c(1, -0.7, 0.5, -1)
@@ -100,16 +100,16 @@ parallel::clusterEvalQ(cl, {
 
 parallel::clusterExport(cl, c("one_rep"))
 
-  pop <- make_pop(theta = my_theta, clusters = 1e4, lambda = 100, cluster_minimum = 0)
-  
-  parallel::clusterExport(cl, c("pop"))
-  
-  fits <- parallel::parLapply(cl, seq(nreps), function(i) try(one_rep(i)))
-  
-  # dump errors
-  not_error <- sapply(fits, function(one_fit) !("try-error" %in% class(one_fit)))
-  
-  # fits <- fits[not_error]
+pop <- make_pop(theta = my_theta, clusters = 1e4, lambda = 100, cluster_minimum = 0)
+
+parallel::clusterExport(cl, c("pop"))
+
+fits <- parallel::parLapply(cl, seq(nreps), function(i) try(one_rep(i)))
+
+# dump errors
+not_error <- sapply(fits, function(one_fit) !("try-error" %in% class(one_fit)))
+
+# fits <- fits[not_error]
 
 parallel::stopCluster(cl)
 

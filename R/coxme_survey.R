@@ -244,7 +244,28 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
     for (i in 1:ncol(wts)) {
 
       .survey.prob.weights <- as.vector(wts[,i]) * pw1 + EPSILON
-      fit <- with(data, eval(g))
+
+      # handle errors here, but for future, consider coxme wrapper with error
+      # handling that gets called instead of coxme.
+
+      fit <- try(with(data, eval(g)))
+
+      # assuming the method is the problem
+      if(inherits(fit, "try-error")) {
+
+        g$method <- "Nelder-Mead"
+
+        fit <- try(with(data, eval(g)))
+
+      }
+
+      # assuming the start values are the problem
+      if(inherits(fit, "try-error")) {
+        g$init <- NULL
+        g$vinit <- NULL
+
+        fit <- try(with(data, eval(g)))
+      }
 
       betas[i, ] <- coef(fit)
       thetas[i, ] <- unlist(coxme::VarCorr(fit))
@@ -301,110 +322,6 @@ residuals.coxme <- function (object, data,
 
 
 }
-
-#' svycoxph
-#' overwrite survey:: method with my own to see if the way i'm assigning weights in the replicates is causing the error.
-#' @export
-
-svycoxph.svyrep.design <- function (formula, design, subset = NULL, rescale = NULL, ...,
-          return.replicates = FALSE, na.action, multicore = getOption("survey.multicore"))
-{
-  subset <- substitute(subset)
-  subset <- eval(subset, design$variables, parent.frame())
-  if (!is.null(subset))
-    design <- design[subset, ]
-  if (multicore && !requireNamespace(parallel, quietly = TRUE))
-    multicore <- FALSE
-  data <- design$variables
-  g <- match.call()
-  g$design <- NULL
-  g$return.replicates <- NULL
-  g$weights <- quote(.survey.prob.weights)
-  g[[1]] <- quote(coxph)
-  g$x <- TRUE
-  scale <- design$scale
-  rscales <- design$rscales
-  if (is.null(rescale))
-    pwts <- design$pweights/mean(design$pweights)
-  else if (rescale)
-    pwts <- design$pweights/sum(design$pweights)
-  if (is.data.frame(pwts))
-    pwts <- pwts[[1]]
-  if (!all(all.vars(formula) %in% names(data)))
-    stop("all variables must be in design= argument")
-  .survey.prob.weights <- pwts
-  full <- with(data, eval(g))
-  if (inherits(full, "coxph.penal"))
-    warning("svycoxph does not support penalised terms")
-  nas <- attr(full$model, "na.action")
-  betas <- matrix(ncol = length(coef(full)), nrow = ncol(design$repweights))
-  wts <- design$repweights
-  if (!design$combined.weights) {
-    pw1 <- pwts
-    rwt <- pw1/mean(pw1)
-  }
-  else {
-    rwt <- 1/mean(as.vector(wts[, 1]))
-    pw1 <- rwt
-  }
-  if (length(nas))
-    wts <- wts[-nas, ]
-  beta0 <- coef(full)
-  EPSILON <- 1e-10
-  if (full$method %in% c("efron", "breslow")) {
-    if (attr(full$y, "type") == "right")
-      fitter <- coxph.fit
-    else if (attr(full$y, "type") == "counting")
-      fitter <- survival::agreg.fit
-    else stop("invalid survival type")
-  }
-  else fitter <- survival::agexact.fit
-  if (multicore) {
-    betas <- do.call(rbind, parallel::mclapply(1:ncol(wts),
-                                               function(i) {
-                                                 fitter(full$x, full$y, full$strata, full$offset,
-                                                        coef(full), coxph.control(), as.vector(wts[,
-                                                                                                   i]) * pw1 + EPSILON, full$method, names(full$resid))$coef
-                                               }))
-  }
-  else {
-    # for (i in 1:ncol(wts)) {
-    #   betas[i, ] <- fitter(full$x, full$y, full$strata,
-    #                        full$offset, coef(full), coxph.control(), as.vector(wts[,
-    #                                                                                i]) * pw1 + EPSILON, full$method, names(full$resid))$coef
-    # }
-    for (i in 1:ncol(wts)) {
-
-      .survey.prob.weights <- as.vector(wts[,i]) * pw1 + EPSILON
-
-      betas[i, ] <- with(data, eval(g))$coef
-
-    }
-
-  }
-  if (length(nas))
-    design <- design[-nas, ]
-  v <- survey::svrVar(betas, scale, rscales, mse = design$mse, coef = beta0)
-  full$var <- v
-  if (return.replicates) {
-    attr(betas, "scale") <- design$scale
-    attr(betas, "rscales") <- design$rscales
-    attr(betas, "mse") <- design$mse
-    full$replicates <- betas
-  }
-  full$naive.var <- NULL
-  full$wald.test <- coef(full) %*% solve(full$var, coef(full))
-  full$loglik <- c(NA, NA)
-  full$rscore <- NULL
-  full$score <- NA
-  full$degf.residual <- degf(design) + 1 - length(coef(full)[!is.na(coef(full))])
-  class(full) <- c("svrepcoxph", "svycoxph", class(full))
-  full$call <- match.call()
-  full$printcall <- sys.call(-1)
-  full$survey.design <- design
-  full
-}
-
 
 
 
