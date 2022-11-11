@@ -253,19 +253,22 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
       # assuming the method is the problem
       if(inherits(fit, "try-error")) {
 
-        g$method <- "Nelder-Mead"
+        g$optpar <- list(method = "Nelder-Mead",
+                         control=list(reltol = 1e-5))
 
         fit <- try(with(data, eval(g)))
 
       }
 
       # assuming the start values are the problem
-      if(inherits(fit, "try-error")) {
-        g$init <- NULL
-        g$vinit <- NULL
-
-        fit <- try(with(data, eval(g)))
-      }
+      # if(inherits(fit, "try-error")) {
+      #
+      #   g$init <- NULL
+      #   g$vinit <- NULL
+      #
+      #   fit <- try(with(data, eval(g)))
+      #
+      # }
 
       betas[i, ] <- coef(fit)
       thetas[i, ] <- unlist(coxme::VarCorr(fit))
