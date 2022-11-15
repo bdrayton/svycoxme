@@ -541,13 +541,11 @@ theta_ipl <- function(theta, formula, parsed_data, other_args){
 
   attr(return_value, "value") <- ests$value
 
-
-
   return_value
 
 }
 
-#' likelihood for theta
+#' gradient of likelihood for theta
 #'
 #' @export
 #'
@@ -598,7 +596,7 @@ theta_ipl_gr <- function(theta, formula, parsed_data, other_args){
   calc_grad <- function(dD){
 
     grad <- -0.5 * ( sum(diag(D_inv %*% dD))
-                     - sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
+                     + sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
                      - t(b)%*%D_inv%*%dD%*%D_inv%*%b )
 
     grad@x
@@ -613,6 +611,8 @@ theta_ipl_gr <- function(theta, formula, parsed_data, other_args){
 
 
 #' gradient for theta likelihood
+#'
+#' takes beta and b as arguments, instead of internally optimising them.
 #'
 #' @export
 #'
@@ -663,7 +663,7 @@ theta_ipl_gr2 <- function(theta, formula, parsed_data, other_args, ests){
   calc_grad <- function(dD){
 
     grad <- -0.5 * ( sum(diag(D_inv %*% dD))
-                     - sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
+                     + sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
                      - t(b)%*%D_inv%*%dD%*%D_inv%*%b )
 
     grad@x
@@ -739,6 +739,99 @@ theta_ipl_fn_gr <- function(formula, parsed_data, other_args) {
 }
 
 
+#' hessian for theta
+#'
+#' @export
+#'
+
+theta_ipl_hess <- function(theta, formula, parsed_data, other_args, ests = NULL){
+
+  # set up D
+  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
+
+  # get n_fixed
+  n_fixed <- ncol(parsed_data$X)-1
+
+  D <- parsed_data$reTrms$Lambdat
+
+  D_inv <- solve(D)
+
+  # first derivatives of D
+  n_theta <- length(parsed_data$reTrms$theta)
+  d_D_d_theta <- vector(mode = "list", length = n_theta)
+
+  for (i in seq_along(parsed_data$reTrms$theta)) {
+
+    d_D_d_theta[[i]] <- parsed_data$reTrms$Lambdat
+
+    d_D_d_theta[[i]]@x <- c(1, 0)[(parsed_data$reTrms$Lind != i) + 1]
+
+  }
+
+  if(is.null(ests)){
+    ests <- optim(par = other_args$start_params,
+                  fn = lp,
+                  gr = lp_gr,
+                  formula = formula,
+                  parsed_data = parsed_data,
+                  other_args = c(list(theta = theta), other_args),
+                  method = "BFGS",
+                  control = list(fnscale = -1, reltol = other_args$reltol),
+                  hessian = TRUE)
+
+    Kbb <- ests$hessian[-(1:n_fixed), -(1:n_fixed)]
+    b <- Matrix::Matrix(ests$par[-seq_len(n_fixed)], ncol = 1)
+  } else {
+    b <- Matrix::Matrix(ests$par[-seq_len(n_fixed)], ncol = 1)
+   Kbb <- ests$hessian[seq_along(b), seq_along(b)]
+
+  }
+
+
+
+  # In Ripatti Palmgren they only use the b part of the Hessian matrix.
+  # if(other_args$re_only) {
+  #   # take the part of the hessian associated with the random effects only
+  #   Kbb <- ests$hessian[-(1:other_args$n_fixed), -(1:other_args$n_fixed)]
+  # } else {
+  #   Kbb <- ests$hessian
+  # }
+
+  # Kbb must be the Ripatti version
+
+
+  Kbb_inv <- solve(Kbb)
+
+  calc_hessian_cell <- function(dD_i, dD_j){
+
+    hess_ij <- -0.5 * ( -sum(diag( D_inv %*% dD_j %*% D_inv %*% dD_i ))
+                     + sum(diag( Kbb_inv %*% D_inv %*% dD_j %*% D_inv %*% Kbb_inv %*% D_inv %*% dD_i %*% D_inv
+                                 - Kbb_inv %*% ( D_inv %*% dD_j %*% D_inv %*% dD_i %*% D_inv
+                                                 + D_inv %*% dD_i %*% D_inv %*% dD_j %*% D_inv)))
+                     + t(b)%*%(D_inv%*%dD_j%*%D_inv%*%dD_i%*%D_inv + D_inv%*%dD_i%*%D_inv%*%dD_j%*%D_inv)%*%b )
+
+    hess_ij@x
+
+  }
+
+  hessian <- matrix(NA_real_, nrow = n_theta, ncol = n_theta)
+
+  for(i in seq(n_theta)){
+
+    for (j in seq(n_theta)) {
+
+      hessian[i, j] <- calc_hessian_cell(d_D_d_theta[[i]], d_D_d_theta[[j]])
+
+    }
+
+  }
+
+  hessian
+
+}
+
+
+
 
 
 #' likelihood for theta
@@ -775,12 +868,15 @@ get_start_theta <- function(n_theta){
 
 #' set control parameters for estimation loop
 #'
+#' defaults change factr to 1e3 from 1e7, and reltol from sqrt(.Machine$double.eps) to 1e-13
+#' this makes the run-to-run variation smaller (negligible), but increases time to convergence.
+#'
 #' @export
 
 
 control.list <- function(method = "ppl", grad = FALSE, re_only = TRUE,
-                         factr = 1e7,
-                         reltol = sqrt(.Machine$double.eps),
+                         factr = 1e3,
+                         reltol = 1e-13,
                          ndeps = 1e-3,
                          max_iter = 100){
 
