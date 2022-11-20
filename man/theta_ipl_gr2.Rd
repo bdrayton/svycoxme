@@ -7,5 +7,5 @@
 theta_ipl_gr2(theta, formula, parsed_data, other_args, ests)
 }
 \description{
-gradient for theta likelihood
+takes beta and b as arguments, instead of internally optimising them.
 }

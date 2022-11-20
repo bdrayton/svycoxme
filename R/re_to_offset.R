@@ -24,7 +24,7 @@ re_to_offset <- function(data, model) {
 
   unique_id_name <- paste0("id_", paste0(sample(letters, 10), collapse = ""))
 
-  data[,unique_id_name] <- seq(nrow(the_data))
+  data[,unique_id_name] <- seq(nrow(data))
 
   re_data <- data[, c(unique_id_name, re_vars)]
 
@@ -40,7 +40,7 @@ re_to_offset <- function(data, model) {
 
   # drop the id column, which is always the first column
 
-  offset = rowSums(merged.data.frame[,-1])
+  offset = rowSums(merged.data.frame[,-1, drop = FALSE])
   offset
 
 }

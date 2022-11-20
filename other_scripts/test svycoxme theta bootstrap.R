@@ -16,7 +16,8 @@ pop_list <- lapply(cluster_str_list, function(cluster_info){
   k_id <- formatC(k, width = max_cluster_freq_digits, flag = "0")
   nk_id <- formatC(nk, width = max_cluster_digits, flag = "0")
 
-  the_data <- one_dataset(~X1 + X2 + X3 + stratum + (1 | M1) + (1 | M1:M2),
+  # the_data <- one_dataset(~X1 + X2 + X3 + stratum + (1 | M1) + (1 | M1:M2),
+  the_data <- one_dataset(~X1 + X2 + X3 + stratum + (1 | M1),
                           dists = list(X1 = ~rnorm(n),
                                        X2 = ~rep(rnorm(k), each = nk),
                                        X3 = ~rep(rbinom(k, 1, 0.5), each = nk),
@@ -28,7 +29,8 @@ pop_list <- lapply(cluster_str_list, function(cluster_info){
                           dist_args = list(k = k, nk = nk,
                                            n = k * nk),
                           coefficients = c(1, -0.7, 0.5, -0.5),
-                          random_effect_variance = list(M1 = 1, `M1:M2` = 1)
+                          random_effect_variance = list(M1 = 1)
+                          # random_effect_variance = list(M1 = 1, `M1:M2` = 1)
   )
 
   dplyr::mutate(the_data, id = paste(nk_id,k_id, M1, sep = "_" ))
@@ -57,16 +59,26 @@ one_rep <- function(){
   ) |> dplyr::select(stratum, id, prob)
 
   sample_data2 <- dplyr::left_join(sample_clusters, pop, by = c("stratum", "id")) |>
-    dplyr::mutate(weight = 1/prob, scaled_weight = (1/prob)/(1/mean(prob)),
-                  M1M2 = interaction(M1, M2))
+    # dplyr::mutate(weight = 1/prob, scaled_weight = (1/prob)/(1/mean(prob)),
+    #               M1M2 = interaction(M1, M2))
+    dplyr::mutate(weight = 1/prob, scaled_weight = (1/prob)/(1/mean(prob)))
 
-  d2 <- survey::svydesign(~id, probs = ~prob, strata = ~stratum, data = sample_data2)
+
+  d2 <- survey::svydesign(~id, weights = ~scaled_weight, strata = ~stratum, data = sample_data2)
   d3 <- survey::as.svrepdesign(d2)
 
-  svycoxme_fit <- svycoxme(survival::Surv(stat_time, stat) ~ X1+X2+X3+stratum+(1|M1)+(1|M1M2),
+  #
+  # svycoxme_fit <- svycoxme(survival::Surv(stat_time, stat) ~ X1+X2+X3+stratum+(1|M1)+(1|M1M2),
+  #                          design = d3)
+  #
+  # coxme_fit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1+X2+X3+stratum+(1|M1)+(1|M1M2),
+  #                           data = sample_data2, weights = scaled_weight)
+  #
+
+  svycoxme_fit <- svycoxme(survival::Surv(stat_time, stat) ~ X1+X2+X3+stratum+(1|M1),
                            design = d3)
 
-  coxme_fit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1+X2+X3+stratum+(1|M1)+(1|M1M2),
+  coxme_fit <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1+X2+X3+stratum+(1|M1),
                             data = sample_data2, weights = scaled_weight)
 
   svycoxme_theta <- unlist(coxme::VarCorr(svycoxme_fit))
@@ -88,11 +100,11 @@ library(tidyverse)
 
 reps_df <- Reduce(rbind.data.frame, reps)
 
-reps_df$theta_name = rep(c("M1", "M2"), 100)
-reps_df$rep = rep(1:100, each = 2)
+reps_df$theta_name = rep(c("M1"), 100)
+reps_df$rep = rep(1:100, each = 1)
 
 # hits
-reps_df$true_theta = rep(c(1, 1), 100)
+reps_df$true_theta = rep(c(1), 100)
 
 reps_df$hits <- with(reps_df, true_theta >= lower & true_theta <= upper)
 

@@ -8,12 +8,13 @@ control.list(
   method = "ppl",
   grad = FALSE,
   re_only = TRUE,
-  factr = 1e+07,
-  reltol = sqrt(.Machine$double.eps),
+  factr = 1000,
+  reltol = 1e-13,
   ndeps = 0.001,
   max_iter = 100
 )
 }
 \description{
-set control parameters for estimation loop
+defaults change factr to 1e3 from 1e7, and reltol from sqrt(.Machine$double.eps) to 1e-13
+this makes the run-to-run variation smaller (negligible), but increases time to convergence.
 }

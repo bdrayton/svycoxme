@@ -333,14 +333,14 @@ lp_gr.pplextra <- function(params, formula, parsed_data, other_args) {
   gr_beta <- unlist(lapply(reduced_X_ZtZ, function(x){
     product <- solved_reduced_ZtZ %*% x
 
-    -0.5 * sum(diag(product))
+    -0.5 * tr(product)
 
   }))
 
   gr_b <- unlist(lapply(reduced_Z_ZtZ, function(x){
     product <- solved_reduced_ZtZ %*% x
 
-    -0.5 * sum(diag(product))
+    -0.5 * tr(product)
 
   }))
 
@@ -595,8 +595,8 @@ theta_ipl_gr <- function(theta, formula, parsed_data, other_args){
 
   calc_grad <- function(dD){
 
-    grad <- -0.5 * ( sum(diag(D_inv %*% dD))
-                     + sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
+    grad <- -0.5 * ( tr(D_inv %*% dD)
+                     + tr(Kbb_inv %*% D_inv %*%dD%*%D_inv)
                      - t(b)%*%D_inv%*%dD%*%D_inv%*%b )
 
     grad@x
@@ -662,8 +662,8 @@ theta_ipl_gr2 <- function(theta, formula, parsed_data, other_args, ests){
 
   calc_grad <- function(dD){
 
-    grad <- -0.5 * ( sum(diag(D_inv %*% dD))
-                     + sum(diag(Kbb_inv %*% D_inv %*%dD%*%D_inv))
+    grad <- -0.5 * ( tr(D_inv %*% dD)
+                     + tr(Kbb_inv %*% D_inv %*%dD%*%D_inv)
                      - t(b)%*%D_inv%*%dD%*%D_inv%*%b )
 
     grad@x
@@ -721,8 +721,8 @@ theta_ipl_fn_gr <- function(formula, parsed_data, other_args) {
 
     calc_grad <- function(dD){
 
-      grad <- -0.5 * ( sum(diag( D_inv %*% dD ))
-                       + sum(diag( Kbb_inv %*% D_inv %*% dD %*% D_inv ))
+      grad <- -0.5 * ( tr( D_inv %*% dD )
+                       + tr( Kbb_inv %*% D_inv %*% dD %*% D_inv )
                        - t(b) %*% D_inv %*% dD %*% D_inv %*% b )
 
       grad@x
@@ -744,7 +744,7 @@ theta_ipl_fn_gr <- function(formula, parsed_data, other_args) {
 #' @export
 #'
 
-theta_ipl_hess <- function(theta, formula, parsed_data, other_args, ests = NULL){
+theta_ipl_hess <- function(theta, formula, parsed_data, other_args, ests = NULL, ...){
 
   # set up D
   parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
@@ -799,34 +799,84 @@ theta_ipl_hess <- function(theta, formula, parsed_data, other_args, ests = NULL)
 
   # Kbb must be the Ripatti version
 
-
-  Kbb_inv <- solve(Kbb)
-
-  calc_hessian_cell <- function(dD_i, dD_j){
-
-    hess_ij <- -0.5 * ( -sum(diag( D_inv %*% dD_j %*% D_inv %*% dD_i ))
-                     + sum(diag( Kbb_inv %*% D_inv %*% dD_j %*% D_inv %*% Kbb_inv %*% D_inv %*% dD_i %*% D_inv
-                                 - Kbb_inv %*% ( D_inv %*% dD_j %*% D_inv %*% dD_i %*% D_inv
-                                                 + D_inv %*% dD_i %*% D_inv %*% dD_j %*% D_inv)))
-                     + t(b)%*%(D_inv%*%dD_j%*%D_inv%*%dD_i%*%D_inv + D_inv%*%dD_i%*%D_inv%*%dD_j%*%D_inv)%*%b )
-
-    hess_ij@x
-
-  }
-
   hessian <- matrix(NA_real_, nrow = n_theta, ncol = n_theta)
 
   for(i in seq(n_theta)){
 
     for (j in seq(n_theta)) {
 
-      hessian[i, j] <- calc_hessian_cell(d_D_d_theta[[i]], d_D_d_theta[[j]])
+      hessian[i, j] <- calc_hessian_cell(d_D_d_theta[[i]], d_D_d_theta[[j]],
+                                         D_inv = D_inv,
+                                         q = length(b),
+                                         theta = theta,
+                                         b = b,
+                                         Kbb_inv = solve(Kbb), ... = ...)
 
     }
 
   }
 
-  hessian
+  # For shared frailty there is a much simpler formula, which should give the
+  # same answer, so it's good for a check.
+
+
+# simple is the form from ripatti palmgren
+# simple2 is my version.
+
+  list(
+    simple = rp_theta_var(theta = theta, q = length(b), Kbb_inv = solve(Kbb)),
+    complex = solve(-hessian))
+
+}
+
+# ripatti palmgren shared frailty vairiance
+
+rp_theta_var <- function(theta, q, Kbb_inv) {
+
+  2 * theta^2 * solve(q + tr(Kbb_inv %*% Kbb_inv)/theta^2 - 2*tr(Kbb_inv)/theta)
+
+}
+
+
+
+# calculate one cell in the theta hessian matrix
+# for shared frailties, there is only one cell, and simple = TRUE may be used
+# modify the simple calc slightly.
+
+calc_hessian_cell <- function(dD_i, dD_j, D_inv, q, theta, b, Kbb_inv, simple = FALSE, ...){
+
+  t1 = -tr( D_inv %*% dD_j %*% D_inv %*% dD_i )
+
+  # t1_simple = -q/theta^2
+
+  t2 =tr( Kbb_inv %*% D_inv %*% dD_j %*% D_inv %*% Kbb_inv %*% D_inv %*% dD_i %*% D_inv
+          - Kbb_inv %*% ( D_inv %*% dD_j %*% D_inv %*% dD_i %*% D_inv
+                          + D_inv %*% dD_i %*% D_inv %*% dD_j %*% D_inv))
+  # t2_simple = tr(Kbb_inv %*% Kbb_inv)/theta^4 - 2*tr(Kbb_inv)/theta^3
+
+  t3 = t(b)%*%(D_inv%*%dD_j%*%D_inv%*%dD_i%*%D_inv + D_inv%*%dD_i%*%D_inv%*%dD_j%*%D_inv)%*%b
+
+  # t3_simple = 2 * (t(b) %*% b) / theta^3
+
+  hess_ij <- -0.5 * ( t1 + t2 + t3 )
+
+  # hess_ij_simple <- -0.5 * (t1_simple + t2_simple + t3_simple)
+
+  hess_ij_simple = q/theta^2 + tr(Kbb_inv)/theta^3 - tr(Kbb_inv %*% Kbb_inv)/(2*theta^4) - (t(b) %*% b)/theta^3
+
+  # if(!all.equal(hess_ij, hess_ij_simple)) stop("simple and complex computations not the same")
+
+
+
+  if(simple){
+    r <- hess_ij_simple@x
+    # attr(r, "parts") <- -0.5 * c(t1_simple, t2_simple, t3_simple@x)
+  } else {
+    r <- hess_ij@x
+    attr(r, "parts") <- -0.5 * c(t1, t2, t3@x)
+  }
+
+  r
 
 }
 
@@ -1338,9 +1388,18 @@ theta_ipl_gr3 <- function(theta, formula, parsed_data, other_args) {
 }
 
 
+#' matrix trace
+#'
+#' wrapper for sum(diag(M))
+#'
+#' @export
+#'
 
+tr <- function(matrix){
 
+  sum(diag(matrix))
 
+}
 
 
 

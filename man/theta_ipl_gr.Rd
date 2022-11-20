@@ -2,10 +2,10 @@
 % Please edit documentation in R/ripatti_likelihoods.R
 \name{theta_ipl_gr}
 \alias{theta_ipl_gr}
-\title{likelihood for theta}
+\title{gradient of likelihood for theta}
 \usage{
 theta_ipl_gr(theta, formula, parsed_data, other_args)
 }
 \description{
-likelihood for theta
+gradient of likelihood for theta
 }

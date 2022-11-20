@@ -253,7 +253,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
       # assuming the method is the problem
       if(inherits(fit, "try-error")) {
 
-        g$optpar <- list(method = "Nelder-Mead",
+        g$optpar <- list(method = "Brent",
                          control=list(reltol = 1e-5))
 
         fit <- try(with(data, eval(g)))
