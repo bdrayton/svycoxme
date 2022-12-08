@@ -862,7 +862,7 @@ calc_hessian_cell <- function(dD_i, dD_j, D_inv, q, theta, b, Kbb_inv, simple = 
 
   # hess_ij_simple <- -0.5 * (t1_simple + t2_simple + t3_simple)
 
-  hess_ij_simple = q/theta^2 + tr(Kbb_inv)/theta^3 - tr(Kbb_inv %*% Kbb_inv)/(2*theta^4) - (t(b) %*% b)/theta^3
+  hess_ij_simple = q/(2 * theta^2) + tr(Kbb_inv)/theta^3 + tr(Kbb_inv %*% Kbb_inv)/(2*theta^4) - (t(b) %*% b)/theta^3
 
   # if(!all.equal(hess_ij, hess_ij_simple)) stop("simple and complex computations not the same")
 
@@ -880,7 +880,20 @@ calc_hessian_cell <- function(dD_i, dD_j, D_inv, q, theta, b, Kbb_inv, simple = 
 
 }
 
+#' unchol
+#'
+#' recover original matrix from cholesky decomposion.
+#'
+#' @export
 
+unchol <- function(M){
+
+  L <- as.matrix(M)
+  D <- diag(M)
+
+  L %*% diag(D) %*% L
+
+}
 
 
 
