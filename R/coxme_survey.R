@@ -69,6 +69,8 @@ svycontrast.svrepcoxme <- function(){
 }
 
 #' check next release for the fix to the rescale issues.
+#'
+#'
 svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...){
   subset<-substitute(subset)
   subset<-eval(subset, model.frame(design),parent.frame())
@@ -120,8 +122,8 @@ svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...)
     design<-design[-nas,]
 
   # Problem: there is no residuals.coxme method.
-  # Solution: fit a coxph model with the random effects as offsets.
-  # write residuals.coxme
+  # Solution !!!Done!!!: fit a coxph model with the random effects as offsets.
+  # write residuals.coxme # DONE
 
   dbeta.subset <- resid(object = g, "dfbeta", weighted=TRUE)
   if (nrow(design)==NROW(dbeta.subset)){
@@ -302,32 +304,75 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   full
 }
 
+#' modifies a formula.
+#'
+#' removes random effect terms
+#' adds  + offset(offset)
+#' intented to modify the formula slot in coxme call when fitting
+#' coxph model with random effects as offsets.
+#'
+#' @export
 
-# depends on survival coxph to do all the work.
-# converts the coxme random effects into an offset,
-# fits a coxph model with that offset, and then uses the
-# coxph machinery. Warning that residuals may be affected in weird ways that
-# we haven't thought through yet.
-# need the data set used for coxme, which is unlike most residual functions (that calculate residuals as part of the fitting function)
+fix_formula <- function(formula){
 
-residuals.coxme <- function (object, data,
-                             type = c("martingale", "deviance",
-                                      "score", "schoenfeld", "dfbeta", "dfbetas",
-                                      "scaledsch", "partial"),
-                             collapse = FALSE,
-                             weighted = (type %in% c("dfbeta", "dfbetas")), ...){
+  # need to retain the formula as a call, but need a formula for formula1 to work.
+  if(inherits(formula, "call")) formula <- eval(formula)
 
-  offset <- svycoxme::re_to_offset(data = data, coxme_model = object)
+  # keep the bit with fixed effects.
+  fixed_part <- coxme:::formula1(formula)$fixed
 
-  survival::coxph()
+  # add offset(offset)
+  new_form <- update.formula(fixed_part, ~ . + offset(offset))
 
+  # convert it back to a call
+  attributes(new_form) <- NULL
 
-
+  return(new_form)
 
 }
 
 
+#' depends on survival coxph to do all the work.
+#' converts the coxme random effects into an offset,
+#' fits a coxph model with that offset, and then uses the
+#' coxph machinery. Warning that residuals may be affected in weird ways that
+#' we haven't thought through yet.
+#' need the data set used for coxme, which is unlike most residual functions (that calculate residuals as part of the fitting function)
+#'
+#' @export
 
+
+residuals.coxme <- function (object, data,
+                             type = c("martingale", "deviance",
+                                      "score", "schoenfeld", "dfbeta", "dfbetas",
+                                      "scaledsch", "partial"), ...){
+
+  # not needed because this method is dispatched based on class.
+  # if(!inherits(object, "coxme")) stop("object must be of class coxme")
+
+  # need to evaluate the call to turn it into a formula.
+  # look at calls using pryr or one of the other helper packages in adv R.
+
+
+  # add random effects as offset to data
+  data$offset <- svycoxme::re_to_offset(data = data, model = object)
+
+  # modify the call for to a coxph model with offsets
+
+  coxph_call <- match.call(coxme::coxme, object$call)
+
+  coxph_call[[1]] <- quote(survival::coxph)
+
+  coxph_call$formula <- fix_formula(coxph_call$formula)
+
+  # now should work.
+  coxph_call$data <- as.name("data")
+
+  fit_coxph <- eval(coxph_call)
+
+  resid(fit_coxph, type = type, ... = ...)
+
+}
 
 
 

@@ -4,7 +4,7 @@
 \alias{theta_ipl_hess}
 \title{hessian for theta}
 \usage{
-theta_ipl_hess(theta, formula, parsed_data, other_args, ests = NULL)
+theta_ipl_hess(theta, formula, parsed_data, other_args, ests = NULL, ...)
 }
 \description{
 hessian for theta
