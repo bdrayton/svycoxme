@@ -2,7 +2,7 @@
 % Please edit documentation in R/coxme_survey.R
 \name{svycoxme.survey.design}
 \alias{svycoxme.survey.design}
-\title{check next release for the fix to the rescale issues.}
+\title{svycoxme.survey.design}
 \usage{
 \method{svycoxme}{survey.design}(formula, design, subset = NULL, rescale = TRUE, ...)
 }

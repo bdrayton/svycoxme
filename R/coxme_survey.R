@@ -30,14 +30,16 @@ svycoxme.DBIsvydesign <- function(formula, design, subset, ...){
 
 }
 
-svycoxme.survey.design <- function(formula, design, subset, ...){
+## implemented
+# svycoxme.survey.design <- function(formula, design, subset, ...){
+#
+#   warning("coxme has not been implemented for class = \"survey.design\"")
+#
+#   # return something?
+#
+# }
 
-  warning("coxme has not been implemented for class = \"survey.design\"")
-
-  # return something?
-
-}
-
+## implemented
 # svycoxme.svyrep.design <- function(formula, design, subset, ...){
 #
 #   warning("coxme has not been implemented for \"class = svyrep.design\" ")
@@ -68,9 +70,13 @@ svycontrast.svrepcoxme <- function(){
 
 }
 
+#' svycoxme.survey.design
+#'
 #' check next release for the fix to the rescale issues.
 #'
 #'
+#' @export
+
 svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...){
   subset<-substitute(subset)
   subset<-eval(subset, model.frame(design),parent.frame())
@@ -91,19 +97,29 @@ svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...)
   else
     g$weights<-bquote(.survey.prob.weights*.(g$weights))
   ## g[[1]]<-quote(coxph)
-  g[[1]] <- quote(coxme)
-  g$data<-quote(data)
+  g[[1]] <- quote(coxme::coxme)
+  # g$data<-quote(data)
+  g$data <- as.name("data")
   g$subset<-quote(.survey.prob.weights>0)
-  g$model <- TRUE
+
+  # g$model <- TRUE
+  # the equivalent to this would be to set x = TRUE and y = TRUE
+  # that may be useful if I define how residuals.coxme works.
+  # currently data is passed to residuals.coxme, so I don't need x and y.
+  # This is inefficient if x + y is a small subset of the data.
 
   ##need to rescale weights for stability
   ## unless the user doesn't want to
   if (rescale)
     data$.survey.prob.weights<-(1/design$prob)/mean(1/design$prob)
+  else
+    data$.survey.prob.weights <- 1/design$prob
+
   if (!all(all.vars(formula) %in% names(data)))
     stop("all variables must be in design= argument")
 
-  g<-with(list(data=data), eval(g))
+  # g<-with(list(data=data), eval(g))
+  g<-eval(g)
 
   ## not needed.
   # if (inherits(g, "coxph.penal"))
@@ -125,7 +141,8 @@ svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...)
   # Solution !!!Done!!!: fit a coxph model with the random effects as offsets.
   # write residuals.coxme # DONE
 
-  dbeta.subset <- resid(object = g, "dfbeta", weighted=TRUE)
+  # subset data here?
+  dbeta.subset <- resid(object = g, data = data, type = "dfbeta", weighted=TRUE)
   if (nrow(design)==NROW(dbeta.subset)){
     dbeta<-as.matrix(dbeta.subset)
   } else {
@@ -367,6 +384,17 @@ residuals.coxme <- function (object, data,
 
   # now should work.
   coxph_call$data <- as.name("data")
+
+  # -1 so the function name isn't dropped
+  call_args <- names(coxph_call)[-1]
+
+  # drop anything in the call that isn't in the formals for coxph
+  # e.g. design
+  to_drop <- call_args[!(call_args %in% formalArgs(survival::coxph))]
+
+  for (i in to_drop) {
+    coxph_call[[i]] <- NULL
+  }
 
   fit_coxph <- eval(coxph_call)
 
