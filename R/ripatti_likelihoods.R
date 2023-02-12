@@ -1004,6 +1004,10 @@ est_parameters <- function(formula, data, start_params = NULL, theta_start = NUL
                             mean = 0,
                             sd = sqrt(theta_start[parsed_data$reTrms$Lind])))
 
+    start_params_names <- c(names(coef(fit0)), rownames(parsed_data$reTrms$Zt))
+
+    names(start_params) <- start_params_names
+
   }
 
   # assumes that the response is of the form Surv(time, stat). Behaviour for other Surv formats is undefined.
