@@ -117,7 +117,7 @@ make_parts.coxph <- function(coxph.object, data){
 
   stat <- response[,"status"]
 
-  weights <- model.weights(model_frame)
+  weights <- weights(coxph.object)
 
   if(is.null(weights)){
     weights <- rep(1, length(stat))
@@ -308,7 +308,7 @@ calc_ui2 <- function(parts){
   # the second term is the row sums after taking the product of these matricies
 
   # sum across j
-  # division by n is a lin thing. Not in the binder formula.
+  # division by N_hat is a lin thing. Not in the binder formula.
   # what does rowSums return with an array?
   # I think I need to split dimension 3 (layer?) and do row sums over those matricies
   # what I want returned is an n * p matrix
