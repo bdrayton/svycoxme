@@ -21,7 +21,8 @@ make_parts.coxme <- function(coxme.object, data){
   # response is actually a (masked) matrix with time and status.
   # but, see trello card.
 
-  response <- model.response(model.frame(form, data))
+  # need to use getFixedFormula, otherwise model.frame may complain about random effects terms.
+  response <- model.response(model.frame(lme4:::getFixedFormula(form), data))
 
   time <- response[,"time"]
 
@@ -30,7 +31,9 @@ make_parts.coxme <- function(coxme.object, data){
   weights <- weights(coxme.object)
 
   if(is.null(weights)){
-    weights <- rep(1, length(stat))
+    # weights <- rep(1, length(stat)) # this is wrong. if the weights are 1, the ui2s are on the wrong scale.
+    # better to throw an error than give the wrong answer.
+    stop("I need weights. Add weights = your_weights to your model call.")
   }
 
   # reorder things
@@ -49,6 +52,9 @@ make_parts.coxme <- function(coxme.object, data){
   # I use X a few times, so extracting. but could I use this each time?
   # does it make a difference anyone would care about in terms of memory or speed?
   X <- parsed_data$X[ , -1, drop = FALSE]
+  Zt <- parsed_data$reTrms$Zt
+  Z <- t(Zt)
+
 
   # I think these need to be p*1 and k*1 matrices
   beta <- Matrix(coxme::fixef(coxme.object), ncol = 1)
@@ -56,7 +62,7 @@ make_parts.coxme <- function(coxme.object, data){
   # they should be lined up by default, but this will need some testing
   b <- Matrix(unlist(coxme::ranef(coxme.object)), ncol = 1)
 
-  risk_score <- X %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
+  risk_score <- X %*% beta + Matrix::crossprod(Zt, b)
 
   # weighted
   exp_risk_score <- weights * exp(risk_score)
@@ -66,10 +72,15 @@ make_parts.coxme <- function(coxme.object, data){
 
   # this is S1_hat, a n * p matrix
   exp_risk_score_X <- exp_risk_score * X
+  n <- nrow(exp_risk_score)
+  exp_risk_score_Z <- Matrix(as.numeric(exp_risk_score) * as.numeric(Z), nrow = n)
 
   # also an n * p matrix
   at_risk_X <- fast_risk_sets(exp_risk_score_X)
 
+  # the equivalent for Z is an n * q matrix
+  # if I could not transpose Zt that would be nice (faster).
+  at_risk_Z <- fast_risk_sets(exp_risk_score_Z)
 
   # here we gain another dimension. n * p * p
   # we want to sum over i, so splitting over i into a list or array seems sensible.
@@ -78,27 +89,58 @@ make_parts.coxme <- function(coxme.object, data){
   # solution: change the dimensions of XtX from p * p to 1 * (p^2).
   # the matrix will then be n * p^2, and any operations using it will need to know this.
 
-
   # this is a p * n matrix. the ith column is t(X[i, ]) %*% X[i, ]
   XtX_i <- apply(X, 1, tcrossprod)
 
-  exp_risk_score_XtX <- t(XtX_i) * exp_risk_score
+  # I need XtZ and ZtZ matricies too.
+  # I think the column indexing here... apply will pass tcrossprod a vector, not a n * 1 matrix, so it's the same results as
+  # apply(t(parsed_data$reTrms$Zt), 1, tcrossprod), but I don't need to transpose.
 
-  # I think I can give this to fast_risk_sets.
+  ZtZ_i <- apply(Zt, 2, tcrossprod)
+
+  exp_risk_score_XtX <- Matrix(as.numeric(t(XtX_i)) * as.numeric(exp_risk_score), nrow = n)
+
+  exp_risk_score_ZtZ <- Matrix(as.numeric(t(ZtZ_i)) * as.numeric(exp_risk_score), nrow = n)
+
+  XtZ_i <- mapply(tcrossprod, split(X, row(X)), split(Zt, col(Zt)))
+
+  exp_risk_score_XtZ <- Matrix(as.numeric(t(XtZ_i)) * as.numeric(exp_risk_score), nrow = n)
+
+  # I think I can give these to fast_risk_sets.
   at_risk_XtX <- fast_risk_sets(exp_risk_score_XtX)
 
+  at_risk_ZtZ <- fast_risk_sets(exp_risk_score_ZtZ)
+
+  at_risk_XtZ <- fast_risk_sets(exp_risk_score_XtZ)
+
+  # I also nee the penalty, divided into n parts. I'm going to ignore it for now.
+  # will need D(theta), divided up appropritely for the calculation of D_i.
+  # will need b * D(theta), divided up appropriately for the calculation of U_i
+  # Will need to weight it appropriately.
+
+  # this is the penalty matrix.
+  # assume that each term has one theta. Must be shared frailty of some sort.
+
+  # theta <- unlist(coxme::VarCorr(coxme.object))
+  # parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
+  # D <- parsed_data$reTrms$Lambdat
+
   # should I add in the Z equivalents, or can I treat them as X components?
-  # add them in.
+  # add them in. there are cross product terms too.
 
   list(stat = stat,
        time = time,
        weights = weights,
        S0 = at_risk,
-       S1 = at_risk_X,
+       S1_X = at_risk_X,
+       S1_Z = at_risk_Z,
        exp_risk_score = exp(risk_score),
        weighted_exp_risk_score = exp_risk_score,
-       S2 = at_risk_XtX,
-       X = X)
+       S2_XtX = at_risk_XtX,
+       S2_ZtZ = at_risk_ZtZ,
+       S2_XtZ = at_risk_XtZ,
+       X = X,
+       Z = Z)
 
 }
 
