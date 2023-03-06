@@ -102,6 +102,8 @@ make_parts.coxme <- function(coxme.object, data){
 
   exp_risk_score_ZtZ <- Matrix(as.numeric(t(ZtZ_i)) * as.numeric(exp_risk_score), nrow = n)
 
+  # check here that the results has the same X Z ordering as this line from calculating Di.
+  # all_rows <- t(mapply(Matrix::tcrossprod, split(parts$S1_X, row(parts$S1_X)), split(parts$S1_Z, row(parts$S1_Z)))) |> Matrix()
   XtZ_i <- mapply(tcrossprod, split(X, row(X)), split(Zt, col(Zt)))
 
   exp_risk_score_XtZ <- Matrix(as.numeric(t(XtZ_i)) * as.numeric(exp_risk_score), nrow = n)
@@ -227,9 +229,19 @@ make_parts.coxph <- function(coxph.object, data){
 
 }
 
+
 #' @export
 
-make_Di <- function(parts){
+calc_Di <- function(x, ...){
+
+  UseMethod("calc_Di", x)
+
+}
+
+
+#' @export
+
+calc_Di.coxph <- function(parts){
 
   with(parts, {
 
@@ -237,6 +249,36 @@ make_Di <- function(parts){
   })
 
 }
+
+#' @export
+
+calc_Di.coxme <- function(parts){
+
+  D_beta_beta <- with(parts, {
+
+    weights * stat * (t(matrix(apply(S1_X/S0, 1, tcrossprod), nrow = ncol(S2_XtX))) - S2_XtX/S0)
+
+  })
+
+  D_b_b <- with(parts, {
+
+    weights * stat * (t(matrix(apply(S1_Z/S0, 1, tcrossprod), nrow = ncol(S2_ZtZ))) - S2_ZtZ/S0)
+
+  })
+
+  D_beta_b <- with(parts, {
+
+    weights * stat * (t(matrix(apply(S1/S0, 1, tcrossprod), nrow = ncol(S2))) - S2/S0)
+
+  })
+
+
+}
+
+
+
+
+
 
 #'
 #' @export
