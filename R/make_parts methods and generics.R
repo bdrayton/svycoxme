@@ -33,7 +33,12 @@ make_parts.coxme <- function(coxme.object, data){
   if(is.null(weights)){
     # weights <- rep(1, length(stat)) # this is wrong. if the weights are 1, the ui2s are on the wrong scale.
     # better to throw an error than give the wrong answer.
-    stop("I need weights. Add weights = your_weights to your model call.")
+    # stop("I need weights. Add weights = your_weights to your model call.")
+
+    # i rescale the weights now, and if they are 1 then coxme drops them, but i need the
+    # rest of this to run when this happens. plus I don't use ui2 anymore.
+    weights <- rep(1, length(stat))
+
   }
 
   # reorder things
@@ -123,26 +128,37 @@ make_parts.coxme <- function(coxme.object, data){
   # this is the penalty matrix.
   # assume that each term has one theta. Must be shared frailty of some sort.
 
-  # theta <- unlist(coxme::VarCorr(coxme.object))
-  # parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
-  # D <- parsed_data$reTrms$Lambdat
+  theta <- unlist(coxme::VarCorr(coxme.object))
+  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
+  D <- parsed_data$reTrms$Lambdat
+
+  penalty <- t(b) %*% D
+
+  # divided by n and repeated
+  ui_penalty <- (penalty/n)[rep(1, n),]
 
   # should I add in the Z equivalents, or can I treat them as X components?
   # add them in. there are cross product terms too.
 
-  list(stat = stat,
-       time = time,
-       weights = weights,
-       S0 = at_risk,
-       S1_X = at_risk_X,
-       S1_Z = at_risk_Z,
-       exp_risk_score = exp(risk_score),
-       weighted_exp_risk_score = exp_risk_score,
-       S2_XtX = at_risk_XtX,
-       S2_ZtZ = at_risk_ZtZ,
-       S2_XtZ = at_risk_XtZ,
-       X = X,
-       Z = Z)
+  r <- list( stat = Matrix(stat, ncol = 1),
+             time = Matrix(time, ncol = 1),
+             weights = Matrix(weights, ncol = 1),
+             S0 = at_risk,
+             S1_X = at_risk_X,
+             S1_Z = at_risk_Z,
+             exp_risk_score = exp(risk_score),
+             weighted_exp_risk_score = exp_risk_score,
+             S2_XtX = at_risk_XtX,
+             S2_ZtZ = at_risk_ZtZ,
+             S2_XtZ = at_risk_XtZ,
+             X = X,
+             Z = Z,
+             ui_penalty = ui_penalty,
+             di_penalty = D)
+
+  class(r) <- c("coxme", class(r))
+
+  r
 
 }
 
@@ -217,15 +233,21 @@ make_parts.coxph <- function(coxph.object, data){
   # should I add in the Z equivalents, or can I treat them as X components?
   # add them in.
 
-  list(stat = stat,
-       time = time,
-       weights = weights,
+  r <- list(stat = Matrix(stat, ncol = 1),
+       time = Matrix(time, ncol = 1),
+       weights = Matrix(weights, ncol = 1),
        S0 = at_risk,
        S1 = at_risk_X,
        exp_risk_score = exp(risk_score),
        weighted_exp_risk_score = exp_risk_score,
        S2 = at_risk_XtX,
        X = X)
+
+  # maybe coxph_parts would be a better class...
+  class(r) <- c("coxph", class(r))
+
+  r
+
 
 }
 
@@ -243,10 +265,25 @@ calc_Di <- function(x, ...){
 
 calc_Di.coxph <- function(parts){
 
-  with(parts, {
+  D_beta_beta <- with(parts, {
 
-    weights * stat * (t(matrix(apply(S1/S0, 1, tcrossprod), nrow = ncol(S2))) - S2/S0)
+    weights * stat * (t(apply(S1/S0, 1, tcrossprod)) - S2/S0)
+
   })
+
+  # assemble the Hessian
+
+  n <- nrow(D_beta_beta)
+  N_hat <- sum(parts$weights)
+
+  n_fixef <- sqrt(ncol(D_beta_beta))
+
+  # with division by n.
+  # top_left <- matrix(colSums(D_beta_beta)/n, nrow = n_fixef)
+
+  top_left <- matrix(colSums(D_beta_beta)/N_hat, nrow = n_fixef)
+
+  top_left
 
 }
 
@@ -256,42 +293,112 @@ calc_Di.coxme <- function(parts){
 
   D_beta_beta <- with(parts, {
 
-    weights * stat * (t(matrix(apply(S1_X/S0, 1, tcrossprod), nrow = ncol(S2_XtX))) - S2_XtX/S0)
+    weights * stat * (t(apply(S1_X/S0, 1, tcrossprod)) - S2_XtX/S0)
 
   })
 
   D_b_b <- with(parts, {
 
-    weights * stat * (t(matrix(apply(S1_Z/S0, 1, tcrossprod), nrow = ncol(S2_ZtZ))) - S2_ZtZ/S0)
+    weights * stat * (t(apply(S1_Z/S0, 1, tcrossprod)) - as(S2_ZtZ, "unpackedMatrix")/S0)
 
   })
 
   D_beta_b <- with(parts, {
 
-    weights * stat * (t(matrix(apply(S1/S0, 1, tcrossprod), nrow = ncol(S2))) - S2/S0)
+    # numerator for first term
+    S1_XtS1_Z <- Matrix(t(mapply(Matrix::tcrossprod, split(S1_X, row(S1_X)), split(S1_Z, row(S1_Z)))))
+
+    # denominator for first term
+    ncols <- ncol(X) * ncol(Z)
+    S0tS0 <- Matrix(rep(apply(S0, 1, tcrossprod), ncols), nrow = nrow(S2_XtZ))
+
+    stat * weights * (S1_XtS1_Z/S0tS0 - as(S2_XtZ, "unpackedMatrix") / S0)
+
 
   })
 
+  # assemble the Hessian
+
+  # used to divide by n, now use Nhat. see eqn 2.5 in Lin 2000
+  n <- nrow(D_beta_beta)
+  Nhat <- sum(parts$weights)
+
+  n_fixef <- sqrt(ncol(D_beta_beta))
+
+  n_ranef <- sqrt(ncol(D_b_b))
+
+  top_left <- matrix(colSums(D_beta_beta), nrow = n_fixef)
+
+  # minus penalty
+  bottom_right <- matrix(colSums(D_b_b), nrow = n_ranef) - parts$di_penalty
+
+  top_right <- matrix(colSums(D_beta_b), nrow = n_fixef)
+
+  bottom_left <- t(top_right)
+
+  ret <- rbind(
+    cbind(top_left, top_right),
+    cbind(bottom_left, bottom_right)
+  )
+
+  # division by Nhat as in Lin.
+  ret/Nhat
 
 }
-
-
-
-
 
 
 #'
 #' @export
 
-calc_ui <- function(parts){
+calc_ui <- function(x, ...){
+
+  UseMethod("calc_ui", x)
+
+}
+
+
+#'
+#' @export
+
+calc_ui.coxph <- function(parts){
+
+  # weighting is done by survey package, so I'm taking it out of here.
 
   with(parts, {
 
-    weights * stat * (X - S1/S0)
+    # weights * stat * (X - S1/S0)
+    stat * (X - S1/S0)
 
   })
 
 }
+
+#'
+#' @export
+
+calc_ui.coxme <- function(parts){
+
+  ui_beta <- with(parts, {
+
+    # weights * stat * (X - S1_X/S0)
+    stat * (X - S1_X/S0)
+
+  })
+
+  ui_b <- with(parts, {
+
+    # weights * stat * (Z - S1_Z/S0) - ui_penalty
+    stat * (Z - S1_Z/S0) - ui_penalty
+
+  })
+
+  cbind(ui_beta, ui_b)
+
+}
+
+
+
+
 
 
 #'
@@ -411,6 +518,7 @@ calc_ui2 <- function(parts){
 #'
 #' @export
 #'
+#' @details
 #' should only work for p = 1, and be the same as the new version.
 #' update: it is the same.
 #' update: it was, but I change a denominator from n to N_hat
