@@ -9,7 +9,7 @@ make_parts <- function(x, data, ...){
 
 #' @export
 
-make_parts.coxme <- function(coxme.object, data){
+make_parts.coxme <- function(coxme.object, data, weights){
 
   # extract the formula from the object call.
   # eval in case a symbol was passed in e.g.
@@ -28,18 +28,22 @@ make_parts.coxme <- function(coxme.object, data){
 
   stat <- response[,"status"]
 
-  weights <- weights(coxme.object)
+  # I need the actual weights, but to get the correct point estimates for coxme, I need to use
+  # rescaled weights, so this will be wrong. Weights are now passed in by the user.
 
-  if(is.null(weights)){
-    # weights <- rep(1, length(stat)) # this is wrong. if the weights are 1, the ui2s are on the wrong scale.
-    # better to throw an error than give the wrong answer.
-    # stop("I need weights. Add weights = your_weights to your model call.")
-
-    # i rescale the weights now, and if they are 1 then coxme drops them, but i need the
-    # rest of this to run when this happens. plus I don't use ui2 anymore.
-    weights <- rep(1, length(stat))
-
-  }
+  #
+  # weights <- weights(coxme.object)
+  #
+  # if(is.null(weights)){
+  #   # weights <- rep(1, length(stat)) # this is wrong. if the weights are 1, the ui2s are on the wrong scale.
+  #   # better to throw an error than give the wrong answer.
+  #   # stop("I need weights. Add weights = your_weights to your model call.")
+  #
+  #   # i rescale the weights now, and if they are 1 then coxme drops them, but i need the
+  #   # rest of this to run when this happens. plus I don't use ui2 anymore.
+  #   weights <- rep(1, length(stat))
+  #
+  # }
 
   # reorder things
   time_order <- order(time)
