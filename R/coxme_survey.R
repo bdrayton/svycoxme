@@ -268,16 +268,17 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
       # handling that gets called instead of coxme.
 
       fit <- try(with(data, eval(g)))
+      # fit <- with(data, eval(g))
 
       # assuming the method is the problem
-      if(inherits(fit, "try-error")) {
-
-        g$optpar <- list(method = "Brent",
-                         control=list(reltol = 1e-5))
-
-        fit <- try(with(data, eval(g)))
-
-      }
+      # if(inherits(fit, "try-error")) {
+      #
+      #   g$optpar <- list(method = "Brent",
+      #                    control=list(reltol = 1e-5))
+      #
+      #   fit <- try(with(data, eval(g)))
+      #
+      # }
 
       # assuming the start values are the problem
       # if(inherits(fit, "try-error")) {
@@ -288,9 +289,13 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
       #   fit <- try(with(data, eval(g)))
       #
       # }
-
-      betas[i, ] <- coef(fit)
-      thetas[i, ] <- unlist(coxme::VarCorr(fit))
+      if(inherits(fit, "try-error")) {
+        betas[i, ] <- rep(NA, ncol(betas))
+        thetas[i, ] <- rep(NA, ncol(thetas))
+      } else {
+        betas[i, ] <- coef(fit)
+        thetas[i, ] <- unlist(coxme::VarCorr(fit))
+      }
 
     }
   # }
