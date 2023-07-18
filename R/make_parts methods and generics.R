@@ -24,6 +24,8 @@ make_parts.coxme <- function(coxme.object, data, weights){
   # need to use getFixedFormula, otherwise model.frame may complain about random effects terms.
   response <- model.response(model.frame(lme4:::getFixedFormula(form), data))
 
+  # this is fine for some Surv objects, but depends on attr(Surv_object, "type").
+  # If type is "counting", then there are three columns, start, stop, and status.
   time <- response[,"time"]
 
   stat <- response[,"status"]
