@@ -394,7 +394,7 @@ calc_ui.coxme <- function(parts){
   ui_b <- with(parts, {
 
     # weights * stat * (Z - S1_Z/S0) - ui_penalty
-    stat * (Z - S1_Z/S0) - ui_penalty
+    stat * ((Z - S1_Z/S0) - ui_penalty)
 
   })
 
