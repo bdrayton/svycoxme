@@ -162,16 +162,16 @@ make_parts.coxme <- function(coxme.object, data, weights){
              ui_penalty = ui_penalty,
              di_penalty = D)
 
-  class(r) <- c("coxme", class(r))
+  class(r) <- c("coxme_parts", class(r))
 
-  r
+  return(r)
 
 }
 
 
 #' @export
 
-make_parts.coxph <- function(coxph.object, data){
+make_parts.coxph <- function(coxph.object, data, weights){
 
   form <- eval(coxph.object$call[[2]])
 
@@ -183,11 +183,12 @@ make_parts.coxph <- function(coxph.object, data){
 
   stat <- response[,"status"]
 
-  weights <- weights(coxph.object)
-
-  if(is.null(weights)){
-    weights <- rep(1, length(stat))
-  }
+  ## weights now passed in by user.
+  # weights <- weights(coxph.object)
+  #
+  # if(is.null(weights)){
+  #   weights <- rep(1, length(stat))
+  # }
 
   # reorder things
   time_order <- order(time)
@@ -239,7 +240,7 @@ make_parts.coxph <- function(coxph.object, data){
   # should I add in the Z equivalents, or can I treat them as X components?
   # add them in.
 
-  r <- list(stat = Matrix(stat, ncol = 1),
+  r <- list(stat = Matrix(stat, ncol = 1, sparse = FALSE),
        time = Matrix(time, ncol = 1),
        weights = Matrix(weights, ncol = 1),
        S0 = at_risk,
@@ -250,7 +251,7 @@ make_parts.coxph <- function(coxph.object, data){
        X = X)
 
   # maybe coxph_parts would be a better class...
-  class(r) <- c("coxph", class(r))
+  class(r) <- c("coxph_parts", class(r))
 
   r
 
@@ -269,11 +270,19 @@ calc_Di <- function(x, ...){
 
 #' @export
 
-calc_Di.coxph <- function(parts){
+calc_Di.coxph_parts <- function(parts){
 
   D_beta_beta <- with(parts, {
 
-    weights * stat * (t(apply(S1/S0, 1, tcrossprod)) - S2/S0)
+    S1S0_squared <- apply(S1/S0, 1, tcrossprod)
+
+    if(is.matrix(S1S0_squared)) {
+      t_S1S0_squared <- t(S1S0_squared)
+    } else {
+      t_S1S0_squared <- Matrix(S1S0_squared, ncol = 1)
+    }
+
+    weights * stat * (t_S1S0_squared - S2/S0)
 
   })
 
@@ -295,7 +304,7 @@ calc_Di.coxph <- function(parts){
 
 #' @export
 
-calc_Di.coxme <- function(parts){
+calc_Di.coxme_parts <- function(parts){
 
   D_beta_beta <- with(parts, {
 
@@ -366,7 +375,7 @@ calc_ui <- function(x, ...){
 #'
 #' @export
 
-calc_ui.coxph <- function(parts){
+calc_ui.coxph_parts <- function(parts){
 
   # weighting is done by survey package, so I'm taking it out of here.
 
@@ -382,7 +391,7 @@ calc_ui.coxph <- function(parts){
 #'
 #' @export
 
-calc_ui.coxme <- function(parts){
+calc_ui.coxme_parts <- function(parts){
 
   ui_beta <- with(parts, {
 
