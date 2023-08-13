@@ -2,25 +2,36 @@
 % Please edit documentation in R/ripatti_likelihoods.R
 \name{lp}
 \alias{lp}
-\title{penalised partial likelihood in Ripatti 2000}
+\alias{lp.ppl}
+\alias{lp.pplextra}
+\title{paritial likelhoods}
 \usage{
-lp(parms, X, stat_time, dij, theta, cluster, data, ...)
+lp(params, formula, parsed_data, other_args)
+
+\method{lp}{ppl}(params, formula, parsed_data, other_args)
+
+\method{lp}{pplextra}(params, formula, parsed_data, other_args)
 }
 \arguments{
 \item{parms}{numeric vector of \eqn{\beta} and b values i.e \code{c(beta, b)}. The condition \code{length(parms) == length(c(X, Z))} must be satisfied.}
 
 \item{X}{character vector containing names of X columns in data.}
 
-\item{dij}{column in data indicating if observation was censored or a failure.}
-
-\item{data}{tibble with all these columns}
-
 \item{t}{column in data with time of failure/censoring data.}
 
 \item{i}{column in data that identifies clusters.}
 
+\item{dij}{column in data indicating if observation was censored or a failure.}
+
 \item{D}{diagonal matrix with given \eqn{\theta}. Must be a square matrix of order \code{length(Z)}.}
+
+\item{data}{tibble with all these columns}
 }
 \description{
-returns the PPL proposed by Ripatti and Palmgren
+The specific method called depends on the class of the parsed data. At time of writing,
+I have only implemented the penalised partial likelihood in Ripatti 2000. Next will be
+the 'full' partial likelihood, that is not dropping the part that they drop.
+}
+\details{
+params are incorrect, but I will update later, when documentation is a higher priority.
 }

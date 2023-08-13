@@ -2,10 +2,10 @@
 % Please edit documentation in R/ripatti_likelihoods.R
 \name{theta_ipl_gr}
 \alias{theta_ipl_gr}
-\title{first derivative of the likelihood for theta}
+\title{gradient of likelihood for theta}
 \usage{
-theta_ipl_gr(one_theta, parms, X, stat_time, dij, cluster, data)
+theta_ipl_gr(theta, formula, parsed_data, other_args)
 }
 \description{
-This is the simplified version, assuming shared frailty.
+gradient of likelihood for theta
 }
