@@ -825,9 +825,9 @@ theta_ipl_hess <- function(theta, formula, parsed_data, other_args, ests = NULL,
 
   list(
 
-    estimate_history = estimate_history,
-    converged = converged,
-    iterations = i)
+    # estimate_history = estimate_history,
+    # converged = converged,
+    # iterations = i)
 
     simple = rp_theta_var(theta = theta, q = length(b), Kbb_inv = solve(Kbb)),
     complex = solve(-hessian))

@@ -237,8 +237,13 @@ make_parts.coxph <- function(coxph.object, data, weights){
   # I think I can give this to fast_risk_sets.
   at_risk_XtX <- fast_risk_sets(exp_risk_score_XtX)
 
-  # should I add in the Z equivalents, or can I treat them as X components?
-  # add them in.
+  # looking at lin and wei, there is another cumulative sum i need for their w_i(beta)
+
+  N = sum(weights)
+
+  ui_expectation = fast_risk_sets(stat * exp_risk_score / (N*at_risk))
+
+
 
   r <- list(stat = Matrix(stat, ncol = 1, sparse = FALSE),
        time = Matrix(time, ncol = 1),
@@ -248,7 +253,8 @@ make_parts.coxph <- function(coxph.object, data, weights){
        exp_risk_score = exp(risk_score),
        weighted_exp_risk_score = exp_risk_score,
        S2 = at_risk_XtX,
-       X = X)
+       X = X,
+       ui_expectation = ui_expectation)
 
   # maybe coxph_parts would be a better class...
   class(r) <- c("coxph_parts", class(r))
@@ -411,7 +417,81 @@ calc_ui.coxme_parts <- function(parts){
 
 }
 
+#'
+#' @export
 
+calc_wi <- function(x, ...){
+
+  UseMethod("calc_wi", x)
+
+}
+
+
+#'
+#' @export
+
+calc_wi.coxph_parts <- function(parts){
+
+  with(parts, {
+
+    N = sum(weights)
+
+    term2 <-  fast_risk_sets(
+
+      (stat * exp_risk_score / (N*S0)) * (X - S1/S0)
+
+    )
+
+    stat * (X - S1/S0) - term2
+
+  })
+
+}
+
+#'
+#' # this is the binder ui and should agree with Claudia's ui
+#' #'
+#' #' @export
+#'
+#' calc_ui_binder.coxph(parts){
+#'
+#'   # this is the estimated ui, arrived at by subbing in estimates to formula 3.7 in binder.
+#'
+#'   # there are three terms
+#'
+#'   term_1 <- with(parts,{
+#'
+#'     stat * (X - S1/S0)
+#'
+#'   })
+#'
+#'
+#'
+#'
+#'
+#'   term_2 <- with(parts, {
+#'
+#'    stat * weight * (X * exp_risk_score / S0)
+#'
+#'
+#'   })
+#'
+#'
+#'
+#'
+#'
+#' }
+#'
+#' # need one x observation.
+#' # need all the observations from that x onwards.
+#' # need weights, stat, exp risk score
+#'
+#' make_term2 <- function() {
+#'
+#'
+#'
+#' }
+#'
 
 
 
