@@ -415,199 +415,200 @@ calc_ui.coxme_parts <- function(parts){
 
 
 
-
+#
+# #'
+# # @export
 #'
-#' @export
-
-calc_ui2 <- function(parts){
-
-  n <- length(parts$stat)
-  N_hat <- sum(parts$weights)
-  p <- ncol(parts$X)
-
-  # first term is the same
-
-  parts <- within(parts, {
-    S1_S0 = S1/S0
-  })
-
-  term1 <- with(parts, {
-
-    weights * stat * (X - S1_S0)
-
-  })
-
-  # divide each exp(beta*X) by the series of risk sets.
-  # this needs to be an array with the third dimension = p (number of covariates.)
-  p1 <- with(parts, {
-
-    array(tcrossprod(exp_risk_score, 1/S0), dim = c(n, n, p))
-
-  })
-
-  # replicate X n times to make a n*n matrix from n*1 X.
-
-  # to update this for multiple X, need to replicate each X
-
-  # minus S0/S1, which is also n*1 from each row
-  # Matrix(as.numeric(X), ncol = n, nrow = n) - Matrix(as.numeric(S1/S0), ncol = n, nrow = n, byrow = TRUE)
-
-  X_mat <- apply(parts$X, 2, function(x){
-
-    matrix(x, nrow = n, ncol = n)
-
-  })
-
-  dim(X_mat) <- c(n, n, p)
-
-  S1_S0_mat  <- apply(parts$S1_S0, 2, function(x){
-
-    matrix(x, nrow = n, ncol = n, byrow = TRUE)
-
-  })
-
-  dim(S1_S0_mat) <- c(n, n, p)
-
-  p2 <- X_mat - S1_S0_mat
-
-  # yi is the indicator I(ti >= tj). Each ti needs to be compared to all tj
-  # because ti is sorted, this should be an upper triangle matrix (if no ties)
-
-  # to update to array, this matrix needs to be stacked p times.
-  # array will need this to be a matrix, not Matrix
-
-
-  yi_temp <- with(parts, {
-
-    matrix(rep(time, each = n) <= rep(time, n), ncol = n, nrow = n, byrow = TRUE)
-
-  })
-
-  yi <- array(yi_temp, dim = c(n, n, p))
-
-
-  # matrix with n reps of stat, as rows.
-  # to update to array, this matrix needs to be stacked p times.
-  # array will need this to be a matrix, not Matrix
-
-  dj_temp <- with(parts, {
-
-    matrix(stat, nrow = n, ncol = n, byrow = TRUE)
-
-  })
-
-  dj <- array(dj_temp, dim = c(n, n, p))
-
-
-  # matrix with n reps of weights, as rows.
-  # to update to array, this matrix needs to be stacked p times.
-  # array will need this to be a matrix, not Matrix
-
-  wj_temp <- with(parts, {
-
-    matrix(weights, nrow = n, ncol = n, byrow = TRUE)
-
-  })
-
-  wj <- array(wj_temp, dim = c(n, n, p))
-
-  # the second term is the row sums after taking the product of these matricies
-
-  # sum across j
-  # division by N_hat is a lin thing. Not in the binder formula.
-  # what does rowSums return with an array?
-  # I think I need to split dimension 3 (layer?) and do row sums over those matricies
-  # what I want returned is an n * p matrix
-
-  term2 <- apply(-dj * wj * yi * p1 * p2, 3, rowSums)/N_hat
-
-  r <- term1 + term2
-
-  ## if you need to examine the parts
-  attr(r, "terms") <- list(term1 = term1, term2 = term2, dj = dj, wj = wj, yi = yi, p1 = p1, p2 = p2, N_hat = N_hat)
-
-  r
-
-}
-
+#' calc_ui2 <- function(parts){
 #'
-#' @export
+#'   n <- length(parts$stat)
+#'   N_hat <- sum(parts$weights)
+#'   p <- ncol(parts$X)
 #'
-#' @details
-#' should only work for p = 1, and be the same as the new version.
-#' update: it is the same.
-#' update: it was, but I change a denominator from n to N_hat
-
-old_calc_ui2 <- function(parts){
-
-  n <- length(parts$stat)
-
-  # first term is the same
-
-  term1 <- with(parts, {
-
-    weights * stat * (X - S1/S0)
-
-  })
-
-  # divide each exp(beta*X) by the series of risk sets.
-  p1 <- with(parts, {
-
-    tcrossprod(exp_risk_score, 1/S0)
-
-  })
-
-  # replicate X n times to make a n*n matrix from n*1 X.
-
-  # to update this for multiple X, need to replicate each X
-
-  # minus S0/S1, which is also n*1 from each row
-  p2 <- with(parts, {
-
-    Matrix(as.numeric(X), ncol = n, nrow = n) - Matrix(as.numeric(S1/S0), ncol = n, nrow = n, byrow = TRUE)
-
-  })
-
-  # yi is the indicator I(ti >= tj). Each ti needs to be compared to all tj
-  # because ti is sorted, this should be an upper triangle matrix (if no ties)
-
-  yi <- with(parts, {
-
-    Matrix(rep(time, each = n) <= rep(time, n), ncol = n, nrow = n, byrow = TRUE)
-
-  })
-
-  # matrix with n reps of stat, as rows.
-  dj <- with(parts, {
-
-    Matrix(stat, nrow = n, ncol = n, byrow = TRUE)
-
-  })
-
-  # matrix with n reps of weights, as rows.
-  wj <- with(parts, {
-
-    Matrix(weights, nrow = n, ncol = n, byrow = TRUE)
-
-  })
-
-  # the second term is the row sums after taking the product of these matricies
-
-  # sum across j
-  # division by n is a lin thing. Not in the binder formula.
-  term2 <- rowSums(-dj * wj * yi * p1 * p2)/n
-
-  r <- term1 + term2
-
-  attr(r, "terms") <- list(term1, dj, wj, yi, p1, p2)
-
-  r
-
-}
-
-
-
-
+#'   # first term is the same
+#'
+#'   parts <- within(parts, {
+#'     S1_S0 = S1/S0
+#'   })
+#'
+#'   term1 <- with(parts, {
+#'
+#'     weights * stat * (X - S1_S0)
+#'
+#'   })
+#'
+#'   # divide each exp(beta*X) by the series of risk sets.
+#'   # this needs to be an array with the third dimension = p (number of covariates.)
+#'   p1 <- with(parts, {
+#'
+#'     array(tcrossprod(exp_risk_score, 1/S0), dim = c(n, n, p))
+#'
+#'   })
+#'
+#'   # replicate X n times to make a n*n matrix from n*1 X.
+#'
+#'   # to update this for multiple X, need to replicate each X
+#'
+#'   # minus S0/S1, which is also n*1 from each row
+#'   # Matrix(as.numeric(X), ncol = n, nrow = n) - Matrix(as.numeric(S1/S0), ncol = n, nrow = n, byrow = TRUE)
+#'
+#'   X_mat <- apply(parts$X, 2, function(x){
+#'
+#'     matrix(x, nrow = n, ncol = n)
+#'
+#'   })
+#'
+#'   dim(X_mat) <- c(n, n, p)
+#'
+#'   S1_S0_mat  <- apply(parts$S1_S0, 2, function(x){
+#'
+#'     matrix(x, nrow = n, ncol = n, byrow = TRUE)
+#'
+#'   })
+#'
+#'   dim(S1_S0_mat) <- c(n, n, p)
+#'
+#'   p2 <- X_mat - S1_S0_mat
+#'
+#'   # yi is the indicator I(ti >= tj). Each ti needs to be compared to all tj
+#'   # because ti is sorted, this should be an upper triangle matrix (if no ties)
+#'
+#'   # to update to array, this matrix needs to be stacked p times.
+#'   # array will need this to be a matrix, not Matrix
+#'
+#'
+#'   yi_temp <- with(parts, {
+#'
+#'     matrix(rep(time, each = n) <= rep(time, n), ncol = n, nrow = n, byrow = TRUE)
+#'
+#'   })
+#'
+#'   yi <- array(yi_temp, dim = c(n, n, p))
+#'
+#'
+#'   # matrix with n reps of stat, as rows.
+#'   # to update to array, this matrix needs to be stacked p times.
+#'   # array will need this to be a matrix, not Matrix
+#'
+#'   dj_temp <- with(parts, {
+#'
+#'     matrix(stat, nrow = n, ncol = n, byrow = TRUE)
+#'
+#'   })
+#'
+#'   dj <- array(dj_temp, dim = c(n, n, p))
+#'
+#'
+#'   # matrix with n reps of weights, as rows.
+#'   # to update to array, this matrix needs to be stacked p times.
+#'   # array will need this to be a matrix, not Matrix
+#'
+#'   wj_temp <- with(parts, {
+#'
+#'     matrix(weights, nrow = n, ncol = n, byrow = TRUE)
+#'
+#'   })
+#'
+#'   wj <- array(wj_temp, dim = c(n, n, p))
+#'
+#'   # the second term is the row sums after taking the product of these matricies
+#'
+#'   # sum across j
+#'   # division by N_hat is a lin thing. Not in the binder formula.
+#'   # what does rowSums return with an array?
+#'   # I think I need to split dimension 3 (layer?) and do row sums over those matricies
+#'   # what I want returned is an n * p matrix
+#'
+#'   term2 <- apply(-dj * wj * yi * p1 * p2, 3, rowSums)/N_hat
+#'
+#'   r <- term1 + term2
+#'
+#'   ## if you need to examine the parts
+#'   attr(r, "terms") <- list(term1 = term1, term2 = term2, dj = dj, wj = wj, yi = yi, p1 = p1, p2 = p2, N_hat = N_hat)
+#'
+#'   r
+#'
+#' }
+#'
+#' #'
+# # @export
+# #'
+# #' @details
+# #' @details
+#' #' should only work for p = 1, and be the same as the new version.
+#' #' update: it is the same.
+#' #' update: it was, but I change a denominator from n to N_hat
+#'
+#' old_calc_ui2 <- function(parts){
+#'
+#'   n <- length(parts$stat)
+#'
+#'   # first term is the same
+#'
+#'   term1 <- with(parts, {
+#'
+#'     weights * stat * (X - S1/S0)
+#'
+#'   })
+#'
+#'   # divide each exp(beta*X) by the series of risk sets.
+#'   p1 <- with(parts, {
+#'
+#'     tcrossprod(exp_risk_score, 1/S0)
+#'
+#'   })
+#'
+#'   # replicate X n times to make a n*n matrix from n*1 X.
+#'
+#'   # to update this for multiple X, need to replicate each X
+#'
+#'   # minus S0/S1, which is also n*1 from each row
+#'   p2 <- with(parts, {
+#'
+#'     Matrix(as.numeric(X), ncol = n, nrow = n) - Matrix(as.numeric(S1/S0), ncol = n, nrow = n, byrow = TRUE)
+#'
+#'   })
+#'
+#'   # yi is the indicator I(ti >= tj). Each ti needs to be compared to all tj
+#'   # because ti is sorted, this should be an upper triangle matrix (if no ties)
+#'
+#'   yi <- with(parts, {
+#'
+#'     Matrix(rep(time, each = n) <= rep(time, n), ncol = n, nrow = n, byrow = TRUE)
+#'
+#'   })
+#'
+#'   # matrix with n reps of stat, as rows.
+#'   dj <- with(parts, {
+#'
+#'     Matrix(stat, nrow = n, ncol = n, byrow = TRUE)
+#'
+#'   })
+#'
+#'   # matrix with n reps of weights, as rows.
+#'   wj <- with(parts, {
+#'
+#'     Matrix(weights, nrow = n, ncol = n, byrow = TRUE)
+#'
+#'   })
+#'
+#'   # the second term is the row sums after taking the product of these matricies
+#'
+#'   # sum across j
+#'   # division by n is a lin thing. Not in the binder formula.
+#'   term2 <- rowSums(-dj * wj * yi * p1 * p2)/n
+#'
+#'   r <- term1 + term2
+#'
+#'   attr(r, "terms") <- list(term1, dj, wj, yi, p1, p2)
+#'
+#'   r
+#'
+#' }
+#'
+#'
+#'
+#'
 
 
 
