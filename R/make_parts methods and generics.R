@@ -179,9 +179,29 @@ make_parts.coxph <- function(coxph.object, data, weights){
 
   response <- model.response(model_frame)
 
-  time <- response[,"time"]
 
-  stat <- response[,"status"]
+  response_type = attr(response, 'type')
+
+  if(response_type == "right"){
+
+    time_stop = response[,"time"]
+    time_start = rep(0, length(time_stop))
+    stat = response[,'status']
+
+    # time <- response[,"time"]
+    # stat <- response[,"status"]
+
+  } else if(response_type == "counting") {
+
+    time_start = response[,"start"]
+    time_stop = response[,"stop"]
+    stat = response[,"status"]
+
+  } else {
+
+    stop("response type is not supported")
+
+  }
 
   ## weights now passed in by user.
   # weights <- weights(coxph.object)
@@ -191,10 +211,21 @@ make_parts.coxph <- function(coxph.object, data, weights){
   # }
 
   # reorder things
-  time_order <- order(time)
 
-  time <- time[time_order]
-  stat <- stat[time_order]
+  # if(response_type == "right"){
+  #   time_order <- order(time)
+  #
+  #   time <- time[time_order]
+  #   stat <- stat[time_order]
+  # }
+  # else if(response_type == "counting"){
+
+    time_order = order(time_stop, time_start)
+
+    time_start = time_start[time_order]
+    time_stop = time_stop[time_order]
+
+  # }
 
   weights <- weights[time_order]
 
@@ -209,14 +240,34 @@ make_parts.coxph <- function(coxph.object, data, weights){
   exp_risk_score <- weights * exp(risk_score)
 
   # this is S0_hat in binder, a n * 1 matrix.
-  at_risk <- fast_risk_sets(exp_risk_score)
+  # this is the faster way (i think, not tested) to do it, if you don't have counting time.
+  # at_risk <- fast_risk_sets(exp_risk_score)
+
+  # for counting time, need an n * n matrix of in_risk_set indicators
+  # for each start time, check if an observation's start time is greater or equal
+  # for each end time, check if an observation's end time is less or equal
+  # in_risk_set if both are true
+  # this way also works for 'right' data (if start times are set to 0).
+
+  n = nrow(response)
+
+  start_test <- time_start <= rep(time_start, each = n)
+  stop_test <- time_stop >= rep(time_stop, each = n)
+
+  in_risk_set_matrix <- matrix(start_test & stop_test, nrow = n)
+
+  at_risk <- colSums(in_risk_set_matrix * exp_risk_score[,rep(1,n)])
 
   # this is S1_hat, a n * p matrix
   exp_risk_score_X <- exp_risk_score * X
 
   # also an n * p matrix
-  at_risk_X <- fast_risk_sets(exp_risk_score_X)
+  # at_risk_X <- fast_risk_sets(exp_risk_score_X)
+  at_risk_X <- apply(exp_risk_score_X, 2, function(X_j){
 
+    colSums(in_risk_set_matrix * X_j)
+
+  })
 
   # here we gain another dimension. n * p * p
   # we want to sum over i, so splitting over i into a list or array seems sensible.
@@ -227,40 +278,36 @@ make_parts.coxph <- function(coxph.object, data, weights){
 
 
   # this is a p * n matrix. the ith column is t(X[i, ]) %*% X[i, ]
+  # I think this stays the same for counting time.
   XtX_i <- matrix(apply(X, 1, tcrossprod), ncol = nrow(X))
-
-
-
 
   exp_risk_score_XtX <- t(XtX_i) * exp_risk_score
 
   # I think I can give this to fast_risk_sets.
-  at_risk_XtX <- fast_risk_sets(exp_risk_score_XtX)
+  # at_risk_XtX <- fast_risk_sets(exp_risk_score_XtX)
+  # this changes with counting time to:
 
-  # looking at lin and wei, there is another cumulative sum i need for their w_i(beta)
+  at_risk_XtX <- apply(exp_risk_score_XtX, 2, function(X_j){
 
-  N = sum(weights)
+    colSums(in_risk_set_matrix * X_j)
 
-  ui_expectation = fast_risk_sets(stat * exp_risk_score / (N*at_risk))
-
-
+  })
 
   r <- list(stat = Matrix(stat, ncol = 1, sparse = FALSE),
-       time = Matrix(time, ncol = 1),
+       time_start = Matrix(time_start, ncol = 1),
+       time_stop = Matrix(time_stop, ncol = 1),
        weights = Matrix(weights, ncol = 1),
        S0 = at_risk,
        S1 = at_risk_X,
        exp_risk_score = exp(risk_score),
        weighted_exp_risk_score = exp_risk_score,
        S2 = at_risk_XtX,
-       X = X,
-       ui_expectation = ui_expectation)
+       X = X)
 
   # maybe coxph_parts would be a better class...
   class(r) <- c("coxph_parts", class(r))
 
   r
-
 
 }
 
@@ -394,7 +441,9 @@ calc_ui.coxph_parts <- function(parts){
     lin_term2[i, ] <- with(parts,{
       irep <- rep(i, length(parts$stat))
       # no division by n
-      colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
+      # colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
+      Yi_at_tj = (time_stop[irep]>=time_stop & time_start <= time_start)
+      colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
     })
   }
 
@@ -457,37 +506,6 @@ calc_ui.coxme_parts <- function(parts){
   lin_score <- lin_term1 - lin_term2
 
   lin_score
-
-}
-
-#'
-#' @export
-
-calc_wi <- function(x, ...){
-
-  UseMethod("calc_wi", x)
-
-}
-
-
-#'
-#' @export
-
-calc_wi.coxph_parts <- function(parts){
-
-  with(parts, {
-
-    N = sum(weights)
-
-    term2 <-  fast_risk_sets(
-
-      (stat * exp_risk_score / (N*S0)) * (X - S1/S0)
-
-    )
-
-    stat * (X - S1/S0) - term2
-
-  })
 
 }
 
