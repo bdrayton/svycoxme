@@ -377,37 +377,80 @@ calc_ui <- function(x, ...){
 
 calc_ui.coxph_parts <- function(parts){
 
-  # weighting is done by survey package, so I'm taking it out of here.
+  n = sum(parts$weights)
 
-  with(parts, {
+  lin_term2 <- parts$X
 
-    # weights * stat * (X - S1/S0)
+  lin_term2[] <- NA
+
+  for(i in seq_len(nrow(lin_term2))) {
+
+    lin_term2[i, ] <- with(parts,{
+      irep <- rep(i, length(parts$stat))
+      # no division by n
+      colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
+    })
+  }
+
+  lin_term1 <- with(parts,{
     stat * (X - S1/S0)
-
   })
 
+  lin_score <- lin_term1 - lin_term2
+
+  lin_score
+
 }
+
 
 #'
 #' @export
 
 calc_ui.coxme_parts <- function(parts){
 
-  ui_beta <- with(parts, {
+  n = sum(parts$weights)
+
+  lin_X_term2 <- parts$X
+  lin_Z_term2 <- parts$Z
+
+  lin_X_term2[] <- NA
+  lin_Z_term2[] <- NA
+
+  for(i in seq_len(nrow(lin_X_term2))) {
+
+    irep <- rep(i, length(parts$stat))
+
+    lin_X_term2[i, ] <- with(parts,{
+      # no division by n
+      colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1_X/S0))
+    })
+
+    lin_Z_term2[i, ] <- with(parts,{
+      colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (Z[irep, ] - S1_Z/S0))
+    })
+
+  }
+
+  lin_term2 <- cbind(lin_X_term2, lin_Z_term2)
+
+  lin_term1_beta <- with(parts, {
 
     # weights * stat * (X - S1_X/S0)
     stat * (X - S1_X/S0)
 
   })
 
-  ui_b <- with(parts, {
+  lin_term1_b <- with(parts, {
 
-    # weights * stat * (Z - S1_Z/S0) - ui_penalty
     stat * ((Z - S1_Z/S0) - ui_penalty)
 
   })
 
-  cbind(ui_beta, ui_b)
+  lin_term1 <- cbind(lin_term1_beta, lin_term1_b)
+
+  lin_score <- lin_term1 - lin_term2
+
+  lin_score
 
 }
 
