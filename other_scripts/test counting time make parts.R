@@ -6,6 +6,9 @@
 
 library(survival)
 
+source("make_parts methods and generics.R")
+
+
 # Create a simple data set for a time-dependent model
 test2 <- list(
   # start=c(1,2,5,2,1,7,3,4,8,8),
@@ -44,10 +47,6 @@ X <- fit$x
 
 fast_risk_sets(matrix(exp_risk_score))
 
-n = nrow(response)
-
-colSums(in_risk_set_matrix * exp_risk_score)
-
 # this is S1_hat, a n * p matrix
 exp_risk_score_X <- exp_risk_score * X
 
@@ -77,7 +76,7 @@ apply(exp_risk_score_XtX, 2, function(X_j){
 #### compare parts when using counting or right time.
 
 # debugonce(make_parts.coxph)
-parts1 <- make_parts(fit, data = test2, weights = rep(1, n))
+
 
 test2 <- list(
   # start=c(1,2,5,2,1,7,3,4,8,8),
@@ -88,12 +87,15 @@ test2 <- list(
   x2 = rnorm(10)) %>%
   as.data.frame()
 
+fit <- coxph(Surv(start, stop, event) ~ x + x2, test2, x = TRUE)
+
+parts1 <- make_parts(fit, data = test2, weights = rep(1, n))
+
 fit <- coxph(Surv(stop, event) ~ x + x2, test2, x = TRUE)
 
 parts2 <- make_parts(fit, data = test2, weights = rep(1, n))
 
 all.equal(parts1, parts2)
-
 
 # compare residuals with therneau residuals with each time type.
 
@@ -115,6 +117,8 @@ score_mine <- calc_ui(parts3)
 score_therneau <- resid(fit, type = "score")
 
 all(score_mine - score_therneau < .Machine$double.neg.eps*10)
+
+
 
 ### when using counting time:
 

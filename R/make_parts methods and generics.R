@@ -68,10 +68,10 @@ make_parts.coxme <- function(coxme.object, data, weights){
 
 
   # I think these need to be p*1 and k*1 matrices
-  beta <- Matrix(coxme::fixef(coxme.object), ncol = 1)
+  beta <- Matrix::Matrix(coxme::fixef(coxme.object), ncol = 1)
   # need to unlist these and line them up with Zt
   # they should be lined up by default, but this will need some testing
-  b <- Matrix(unlist(coxme::ranef(coxme.object)), ncol = 1)
+  b <- Matrix::Matrix(unlist(coxme::ranef(coxme.object)), ncol = 1)
 
   risk_score <- X %*% beta + Matrix::crossprod(Zt, b)
 
@@ -84,7 +84,7 @@ make_parts.coxme <- function(coxme.object, data, weights){
   # this is S1_hat, a n * p matrix
   exp_risk_score_X <- exp_risk_score * X
   n <- nrow(exp_risk_score)
-  exp_risk_score_Z <- Matrix(as.numeric(exp_risk_score) * as.numeric(Z), nrow = n)
+  exp_risk_score_Z <- Matrix::Matrix(as.numeric(exp_risk_score) * as.numeric(Z), nrow = n)
 
   # also an n * p matrix
   at_risk_X <- fast_risk_sets(exp_risk_score_X)
@@ -109,15 +109,15 @@ make_parts.coxme <- function(coxme.object, data, weights){
 
   ZtZ_i <- apply(Zt, 2, tcrossprod)
 
-  exp_risk_score_XtX <- Matrix(as.numeric(t(XtX_i)) * as.numeric(exp_risk_score), nrow = n)
+  exp_risk_score_XtX <- Matrix::Matrix(as.numeric(t(XtX_i)) * as.numeric(exp_risk_score), nrow = n)
 
-  exp_risk_score_ZtZ <- Matrix(as.numeric(t(ZtZ_i)) * as.numeric(exp_risk_score), nrow = n)
+  exp_risk_score_ZtZ <- Matrix::Matrix(as.numeric(t(ZtZ_i)) * as.numeric(exp_risk_score), nrow = n)
 
   # check here that the results has the same X Z ordering as this line from calculating Di.
   # all_rows <- t(mapply(Matrix::tcrossprod, split(parts$S1_X, row(parts$S1_X)), split(parts$S1_Z, row(parts$S1_Z)))) |> Matrix()
   XtZ_i <- mapply(tcrossprod, split(X, row(X)), split(Zt, col(Zt)))
 
-  exp_risk_score_XtZ <- Matrix(as.numeric(t(XtZ_i)) * as.numeric(exp_risk_score), nrow = n)
+  exp_risk_score_XtZ <- Matrix::Matrix(as.numeric(t(XtZ_i)) * as.numeric(exp_risk_score), nrow = n)
 
   # I think I can give these to fast_risk_sets.
   at_risk_XtX <- fast_risk_sets(exp_risk_score_XtX)
@@ -146,9 +146,9 @@ make_parts.coxme <- function(coxme.object, data, weights){
   # should I add in the Z equivalents, or can I treat them as X components?
   # add them in. there are cross product terms too.
 
-  r <- list( stat = Matrix(stat, ncol = 1),
-             time = Matrix(time, ncol = 1),
-             weights = Matrix(weights, ncol = 1),
+  r <- list( stat = Matrix::Matrix(stat, ncol = 1),
+             time = Matrix::Matrix(time, ncol = 1),
+             weights = Matrix::Matrix(weights, ncol = 1),
              S0 = at_risk,
              S1_X = at_risk_X,
              S1_Z = at_risk_Z,
@@ -232,7 +232,7 @@ make_parts.coxph <- function(coxph.object, data, weights){
   X <- model.matrix(coxph.object)[time_order, , drop = FALSE]
 
   # I think these need to be p*1 and k*1 matrices
-  beta <- Matrix(coef(coxph.object), ncol = 1)
+  beta <- Matrix::Matrix(coef(coxph.object), ncol = 1)
 
   risk_score <- X %*% beta
 
@@ -244,6 +244,9 @@ make_parts.coxph <- function(coxph.object, data, weights){
   # at_risk <- fast_risk_sets(exp_risk_score)
 
   # for counting time, need an n * n matrix of in_risk_set indicators
+
+  # for each end time, check if the start time is < the end time and the end time is >= the end time
+
   # for each start time, check if an observation's start time is greater or equal
   # for each end time, check if an observation's end time is less or equal
   # in_risk_set if both are true
@@ -251,12 +254,12 @@ make_parts.coxph <- function(coxph.object, data, weights){
 
   n = nrow(response)
 
-  start_test <- time_start <= rep(time_start, each = n)
-  stop_test <- time_stop >= rep(time_stop, each = n)
+  start_test <-   time_stop > rep(time_start, each = n)
+  stop_test <-    time_stop <= rep(time_stop, each = n)
 
-  in_risk_set_matrix <- matrix(start_test & stop_test, nrow = n)
+  in_risk_set_matrix <- matrix(start_test & stop_test, nrow = n, byrow = TRUE)
 
-  at_risk <- colSums(in_risk_set_matrix * exp_risk_score[,rep(1,n)])
+  at_risk <- Matrix::colSums(in_risk_set_matrix * exp_risk_score[,rep(1,n)])
 
   # this is S1_hat, a n * p matrix
   exp_risk_score_X <- exp_risk_score * X
@@ -293,10 +296,10 @@ make_parts.coxph <- function(coxph.object, data, weights){
 
   })
 
-  r <- list(stat = Matrix(stat, ncol = 1, sparse = FALSE),
-       time_start = Matrix(time_start, ncol = 1),
-       time_stop = Matrix(time_stop, ncol = 1),
-       weights = Matrix(weights, ncol = 1),
+  r <- list(stat = Matrix::Matrix(stat, ncol = 1, sparse = FALSE),
+       time_start = Matrix::Matrix(time_start, ncol = 1),
+       time_stop = Matrix::Matrix(time_stop, ncol = 1),
+       weights = Matrix::Matrix(weights, ncol = 1),
        S0 = at_risk,
        S1 = at_risk_X,
        exp_risk_score = exp(risk_score),
@@ -332,7 +335,7 @@ calc_Di.coxph_parts <- function(parts){
     if(is.matrix(S1S0_squared)) {
       t_S1S0_squared <- t(S1S0_squared)
     } else {
-      t_S1S0_squared <- Matrix(S1S0_squared, ncol = 1)
+      t_S1S0_squared <- Matrix::Matrix(S1S0_squared, ncol = 1)
     }
 
     weights * stat * (t_S1S0_squared - S2/S0)
@@ -374,11 +377,11 @@ calc_Di.coxme_parts <- function(parts){
   D_beta_b <- with(parts, {
 
     # numerator for first term
-    S1_XtS1_Z <- Matrix(t(mapply(Matrix::tcrossprod, split(S1_X, row(S1_X)), split(S1_Z, row(S1_Z)))))
+    S1_XtS1_Z <- Matrix::Matrix(t(mapply(Matrix::tcrossprod, split(S1_X, row(S1_X)), split(S1_Z, row(S1_Z)))))
 
     # denominator for first term
     ncols <- ncol(X) * ncol(Z)
-    S0tS0 <- Matrix(rep(apply(S0, 1, tcrossprod), ncols), nrow = nrow(S2_XtZ))
+    S0tS0 <- Matrix::Matrix(rep(apply(S0, 1, tcrossprod), ncols), nrow = nrow(S2_XtZ))
 
     stat * weights * (S1_XtS1_Z/S0tS0 - as(S2_XtZ, "unpackedMatrix") / S0)
 
@@ -430,6 +433,14 @@ calc_ui <- function(x, ...){
 
 calc_ui.coxph_parts <- function(parts){
 
+
+  # it's easier to debug if you can access the parts without using parts$ or with()
+  env <- environment()
+
+  lapply(names(parts3), function(part){
+    assign(part, parts3[[part]], pos = env)
+  })
+
   n = sum(parts$weights)
 
   lin_term2 <- parts$X
@@ -438,13 +449,16 @@ calc_ui.coxph_parts <- function(parts){
 
   for(i in seq_len(nrow(lin_term2))) {
 
-    lin_term2[i, ] <- with(parts,{
       irep <- rep(i, length(parts$stat))
-      # no division by n
-      # colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
-      Yi_at_tj = (time_stop[irep]>=time_stop & time_start <= time_start)
-      colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
-    })
+      Yi_at_tj = (time_stop[irep] > time_start & time_stop[irep] >= time_stop)
+
+      lin_term2[i, ] <- Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
+
+    # lin_term2[i, ] <- with(parts,{
+    #   Yi_at_tj = (time_stop[irep] > time_start & time_stop[irep] >= time_stop)
+    #   Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
+    # })
+
   }
 
   lin_term1 <- with(parts,{
@@ -477,11 +491,11 @@ calc_ui.coxme_parts <- function(parts){
 
     lin_X_term2[i, ] <- with(parts,{
       # no division by n
-      colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1_X/S0))
+      Matrix::colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1_X/S0))
     })
 
     lin_Z_term2[i, ] <- with(parts,{
-      colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (Z[irep, ] - S1_Z/S0))
+      Matrix::colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (Z[irep, ] - S1_Z/S0))
     })
 
   }
