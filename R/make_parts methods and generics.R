@@ -76,9 +76,6 @@ make_parts.coxme <- function(coxme.object, data, weights){
   time_start = time_start[time_order]
   time_stop = time_stop[time_order]
 
-  time
-
-
   weights <- weights[time_order]
 
   ds_sorted <- data[time_order, ]
@@ -104,20 +101,39 @@ make_parts.coxme <- function(coxme.object, data, weights){
   # weighted
   exp_risk_score <- weights * exp(risk_score)
 
+  n = nrow(response)
+  start_test <-   time_stop > rep(time_start, each = n)
+  stop_test <-    time_stop <= rep(time_stop, each = n)
+
+  in_risk_set_matrix <- matrix(start_test & stop_test, nrow = n, byrow = TRUE)
+
   # this is S0_hat in binder, a n * 1 matrix.
-  at_risk <- fast_risk_sets(exp_risk_score)
+  # at_risk <- fast_risk_sets(exp_risk_score)
+  at_risk <- Matrix::colSums(in_risk_set_matrix * exp_risk_score[,rep(1,n)])
 
   # this is S1_hat, a n * p matrix
   exp_risk_score_X <- exp_risk_score * X
-  n <- nrow(exp_risk_score)
+  # n <- nrow(exp_risk_score)
   exp_risk_score_Z <- Matrix::Matrix(as.numeric(exp_risk_score) * as.numeric(Z), nrow = n)
 
+
   # also an n * p matrix
-  at_risk_X <- fast_risk_sets(exp_risk_score_X)
+  # at_risk_X <- fast_risk_sets(exp_risk_score_X)
+  at_risk_X <- apply(exp_risk_score_X, 2, function(X_j){
+
+    colSums(in_risk_set_matrix * X_j)
+
+  })
 
   # the equivalent for Z is an n * q matrix
   # if I could not transpose Zt that would be nice (faster).
-  at_risk_Z <- fast_risk_sets(exp_risk_score_Z)
+  # at_risk_Z <- fast_risk_sets(exp_risk_score_Z)
+
+  at_risk_Z <- apply(exp_risk_score_Z, 2, function(Z_j){
+
+    colSums(in_risk_set_matrix * Z_j)
+
+  })
 
   # here we gain another dimension. n * p * p
   # we want to sum over i, so splitting over i into a list or array seems sensible.
@@ -132,28 +148,42 @@ make_parts.coxme <- function(coxme.object, data, weights){
   # I need XtZ and ZtZ matricies too.
   # I think the column indexing here... apply will pass tcrossprod a vector, not a n * 1 matrix, so it's the same results as
   # apply(t(parsed_data$reTrms$Zt), 1, tcrossprod), but I don't need to transpose.
-
   ZtZ_i <- apply(Zt, 2, tcrossprod)
-
-  exp_risk_score_XtX <- Matrix::Matrix(as.numeric(t(XtX_i)) * as.numeric(exp_risk_score), nrow = n)
-
-  exp_risk_score_ZtZ <- Matrix::Matrix(as.numeric(t(ZtZ_i)) * as.numeric(exp_risk_score), nrow = n)
 
   # check here that the results has the same X Z ordering as this line from calculating Di.
   # all_rows <- t(mapply(Matrix::tcrossprod, split(parts$S1_X, row(parts$S1_X)), split(parts$S1_Z, row(parts$S1_Z)))) |> Matrix()
   XtZ_i <- mapply(tcrossprod, split(X, row(X)), split(Zt, col(Zt)))
 
+  exp_risk_score_XtX <- Matrix::Matrix(as.numeric(t(XtX_i)) * as.numeric(exp_risk_score), nrow = n)
+
+  exp_risk_score_ZtZ <- Matrix::Matrix(as.numeric(t(ZtZ_i)) * as.numeric(exp_risk_score), nrow = n)
+
   exp_risk_score_XtZ <- Matrix::Matrix(as.numeric(t(XtZ_i)) * as.numeric(exp_risk_score), nrow = n)
 
-  # I think I can give these to fast_risk_sets.
-  at_risk_XtX <- fast_risk_sets(exp_risk_score_XtX)
+  # I think I can give this to fast_risk_sets.
+  # at_risk_XtX <- fast_risk_sets(exp_risk_score_XtX)
+  # this changes with counting time to:
 
-  at_risk_ZtZ <- fast_risk_sets(exp_risk_score_ZtZ)
+  at_risk_XtX <- apply(exp_risk_score_XtX, 2, function(XX_j){
 
-  at_risk_XtZ <- fast_risk_sets(exp_risk_score_XtZ)
+    colSums(in_risk_set_matrix * XX_j)
 
-  # I also nee the penalty, divided into n parts. I'm going to ignore it for now.
-  # will need D(theta), divided up appropritely for the calculation of D_i.
+  })
+
+  at_risk_ZtZ <- apply(exp_risk_score_ZtZ, 2, function(ZZ_j){
+
+    colSums(in_risk_set_matrix * ZZ_j)
+
+  })
+
+  at_risk_XtZ <- apply(exp_risk_score_XtZ, 2, function(XZ_j){
+
+    colSums(in_risk_set_matrix * XZ_j)
+
+  })
+
+  # I also need the penalty, divided into n parts.
+  # will need D(theta), divided up appropriately for the calculation of D_i.
   # will need b * D(theta), divided up appropriately for the calculation of U_i
   # Will need to weight it appropriately.
 
