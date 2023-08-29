@@ -450,8 +450,7 @@ calc_ui.coxph_parts <- function(parts){
   for(i in seq_len(nrow(lin_term2))) {
 
       irep <- rep(i, length(parts$stat))
-      Yi_at_tj = (time_stop[irep] > time_start & time_stop[irep] >= time_stop)
-
+      Yi_at_tj = (time_start[irep] < time_stop & time_stop[irep] >= time_stop)
       lin_term2[i, ] <- Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
 
     # lin_term2[i, ] <- with(parts,{
