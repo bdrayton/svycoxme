@@ -26,9 +26,32 @@ make_parts.coxme <- function(coxme.object, data, weights){
 
   # this is fine for some Surv objects, but depends on attr(Surv_object, "type").
   # If type is "counting", then there are three columns, start, stop, and status.
-  time <- response[,"time"]
+  # time <- response[,"time"]
+  # stat <- response[,"status"]
 
-  stat <- response[,"status"]
+  response_type = attr(response, 'type')
+
+  if(response_type == "right"){
+
+    time_stop = response[,"time"]
+    time_start = rep(0, length(time_stop))
+    stat = response[,'status']
+
+    # time <- response[,"time"]
+    # stat <- response[,"status"]
+
+  } else if(response_type == "counting") {
+
+    time_start = response[,"start"]
+    time_stop = response[,"stop"]
+    stat = response[,"status"]
+
+  } else {
+
+    stop("response type is not supported")
+
+  }
+
 
   # I need the actual weights, but to get the correct point estimates for coxme, I need to use
   # rescaled weights, so this will be wrong. Weights are now passed in by the user.
@@ -48,10 +71,13 @@ make_parts.coxme <- function(coxme.object, data, weights){
   # }
 
   # reorder things
-  time_order <- order(time)
+  time_order = order(time_stop, time_start)
 
-  time <- time[time_order]
-  stat <- stat[time_order]
+  time_start = time_start[time_order]
+  time_stop = time_stop[time_order]
+
+  time
+
 
   weights <- weights[time_order]
 
@@ -147,7 +173,8 @@ make_parts.coxme <- function(coxme.object, data, weights){
   # add them in. there are cross product terms too.
 
   r <- list( stat = Matrix::Matrix(stat, ncol = 1),
-             time = Matrix::Matrix(time, ncol = 1),
+             time_start = Matrix::Matrix(time_start, ncol = 1),
+             time_stop = Matrix::Matrix(time_stop, ncol = 1),
              weights = Matrix::Matrix(weights, ncol = 1),
              S0 = at_risk,
              S1_X = at_risk_X,
@@ -435,11 +462,11 @@ calc_ui.coxph_parts <- function(parts){
 
 
   # it's easier to debug if you can access the parts without using parts$ or with()
-  env <- environment()
-
-  lapply(names(parts), function(part){
-    assign(part, parts[[part]], pos = env)
-  })
+  # env <- environment()
+  #
+  # lapply(names(parts), function(part){
+  #   assign(part, parts[[part]], pos = env)
+  # })
 
   n = sum(parts$weights)
 
@@ -450,13 +477,13 @@ calc_ui.coxph_parts <- function(parts){
   for(i in seq_len(nrow(lin_term2))) {
 
       irep <- rep(i, length(parts$stat))
-      Yi_at_tj = (time_start[irep] < time_stop & time_stop[irep] >= time_stop)
-      lin_term2[i, ] <- Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
+      # Yi_at_tj = (time_start[irep] < time_stop & time_stop[irep] >= time_stop)
+      # lin_term2[i, ] <- Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
 
-    # lin_term2[i, ] <- with(parts,{
-    #   Yi_at_tj = (time_stop[irep] > time_start & time_stop[irep] >= time_stop)
-    #   Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
-    # })
+    lin_term2[i, ] <- with(parts,{
+      Yi_at_tj = (time_start[irep] < time_stop & time_stop[irep] >= time_stop)
+      Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1/S0))
+    })
 
   }
 
@@ -486,15 +513,16 @@ calc_ui.coxme_parts <- function(parts){
 
   for(i in seq_len(nrow(lin_X_term2))) {
 
+
     irep <- rep(i, length(parts$stat))
+    Yi_at_tj <- with(parts, time_start[irep] < time_stop & time_stop[irep] >= time_stop)
 
     lin_X_term2[i, ] <- with(parts,{
-      # no division by n
-      Matrix::colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1_X/S0))
+      Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1_X/S0))
     })
 
     lin_Z_term2[i, ] <- with(parts,{
-      Matrix::colSums((stat * weights * (time[irep]>=time) * exp_risk_score[irep] * (1/S0)) * (Z[irep, ] - S1_Z/S0))
+      Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (Z[irep, ] - S1_Z/S0))
     })
 
   }
