@@ -1,6 +1,6 @@
 
 # more tests for score residuals.
-
+library(survival)
 cgd0 <- cgd0
 
 newcgd <- tmerge(data1=cgd0[, 1:13], data2=cgd0, id=id, tstop=futime)
