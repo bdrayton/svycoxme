@@ -437,8 +437,8 @@ calc_ui.coxph_parts <- function(parts){
   # it's easier to debug if you can access the parts without using parts$ or with()
   env <- environment()
 
-  lapply(names(parts3), function(part){
-    assign(part, parts3[[part]], pos = env)
+  lapply(names(parts), function(part){
+    assign(part, parts[[part]], pos = env)
   })
 
   n = sum(parts$weights)
