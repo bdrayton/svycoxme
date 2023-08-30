@@ -109,7 +109,7 @@ make_parts.coxme <- function(coxme.object, data, weights){
 
   # this is S0_hat in binder, a n * 1 matrix.
   # at_risk <- fast_risk_sets(exp_risk_score)
-  at_risk <- Matrix::colSums(in_risk_set_matrix * exp_risk_score[,rep(1,n)])
+  at_risk <- Matrix::Matrix(Matrix::colSums(in_risk_set_matrix * exp_risk_score[,rep(1,n)]))
 
   # this is S1_hat, a n * p matrix
   exp_risk_score_X <- exp_risk_score * X
