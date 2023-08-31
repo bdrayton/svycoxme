@@ -6,7 +6,7 @@
 
 library(survival)
 
-source("make_parts methods and generics.R")
+# source("make_parts methods and generics.R")
 
 
 # Create a simple data set for a time-dependent model
@@ -131,16 +131,18 @@ test2 <- list(
   x2 = rnorm(10)) %>%
   as.data.frame()
 
+test2 <- test2[order(test2$stop, test2$start), ]
+
 fit <- coxph(Surv(start, stop, event) ~ x + x2, test2, x = TRUE, ties = 'breslow')
 
-parts3 <- make_parts(fit, data = test2, weights = rep(1, n))
+parts3 <- make_parts(fit, data = test2, weights = rep(1, nrow(test2)))
 
 score_mine <- calc_ui(parts3)
 score_therneau <- resid(fit, type = "score")
 
 all(score_mine - score_therneau < .Machine$double.neg.eps*10)
 
-score_mine - score_therneau
+as.matrix(score_mine) - as.matrix(score_therneau)
 
 
 

@@ -474,6 +474,50 @@ calc_Di.coxme_parts <- function(parts){
 
 }
 
+#'
+#' @export
+
+get_information <- function(x, ...){
+
+    UseMethod("get_information", x)
+
+}
+
+#'
+#' @export
+
+get_information.coxph <- function(coxph.object){
+
+  vcov(coxph.object)
+
+}
+
+#'
+#' @export
+
+get_information.coxme <- function(coxme.object){
+
+  # this is the information matrix, with the dense fixed effects part in the bottom right corner.
+  # converting to a regular matrix. Probably better to retain the sparse structure. I don't know how to do that
+  # and still do the re-ordering.
+
+  inf1 <- as.matrix(coxme.object$variance)
+
+  # rearrange to put it it the top left corner.
+  nfixed <- length(coxme::fixed.effects(coxme.object))
+  nrandom <- length(unlist(coxme::random.effects(coxme.object)))
+
+  ntotal <- nfixed + nrandom
+
+  inf2 <- inf1[c((nrandom+1):(ntotal), 1:nrandom) , c((nrandom+1):(ntotal), 1:nrandom)]
+
+  inf2
+
+}
+
+
+
+
 
 #'
 #' @export
@@ -541,18 +585,26 @@ calc_ui.coxme_parts <- function(parts){
   lin_X_term2[] <- NA
   lin_Z_term2[] <- NA
 
-  for(i in seq_len(nrow(lin_X_term2))) {
+  nX <- ncol(lin_X_term2)
+  nZ <- ncol(lin_Z_term2)
 
+  # for column reps
+  nXreps = rep(1, nX)
+  nZreps = rep(1, nZ)
+
+  for(i in seq_len(nrow(lin_X_term2))) {
 
     irep <- rep(i, length(parts$stat))
     Yi_at_tj <- with(parts, time_start[irep] < time_stop & time_stop[irep] >= time_stop)
 
+    temp = with(parts, stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0))
+
     lin_X_term2[i, ] <- with(parts,{
-      Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (X[irep, ] - S1_X/S0))
+      Matrix::colSums(temp[, nXreps]* (X[irep, ] - S1_X/S0))
     })
 
     lin_Z_term2[i, ] <- with(parts,{
-      Matrix::colSums((stat * weights * Yi_at_tj * exp_risk_score[irep] * (1/S0)) * (Z[irep, ] - S1_Z/S0))
+      Matrix::colSums(temp[, nZreps] * (Z[irep, ] - S1_Z/S0))
     })
 
   }
@@ -562,13 +614,13 @@ calc_ui.coxme_parts <- function(parts){
   lin_term1_beta <- with(parts, {
 
     # weights * stat * (X - S1_X/S0)
-    stat * (X - S1_X/S0)
+    stat[, nXreps] * (X - S1_X/S0)
 
   })
 
   lin_term1_b <- with(parts, {
 
-    stat * ((Z - S1_Z/S0) - ui_penalty)
+    stat[, nZreps] * ((Z - S1_Z/S0) - ui_penalty)
 
   })
 
