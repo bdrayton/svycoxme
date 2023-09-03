@@ -111,8 +111,10 @@ make_parts.coxme <- function(coxme.object, data, weights){
   # at_risk <- fast_risk_sets(exp_risk_score)
   at_risk <- Matrix::Matrix(Matrix::colSums(in_risk_set_matrix * exp_risk_score[,rep(1,n)]))
 
+  nX <- ncol(X)
+
   # this is S1_hat, a n * p matrix
-  exp_risk_score_X <- exp_risk_score * X
+  exp_risk_score_X <- exp_risk_score[, rep(1, nX)] * X
   # n <- nrow(exp_risk_score)
   exp_risk_score_Z <- Matrix::Matrix(as.numeric(exp_risk_score) * as.numeric(Z), nrow = n)
 
