@@ -364,46 +364,53 @@ fix_formula <- function(formula){
 #' @export
 
 
-residuals.coxme <- function (object, data,
-                             type = c("martingale", "deviance",
-                                      "score", "schoenfeld", "dfbeta", "dfbetas",
-                                      "scaledsch", "partial"), ...){
+residuals.coxme <- function (object, data, weights,
+                             type = c("score", "dfbeta", "dfbetas"), ...){
 
-  # not needed because this method is dispatched based on class.
-  # if(!inherits(object, "coxme")) stop("object must be of class coxme")
+  type <- match.arg(type)
+  otype <- type
 
-  # need to evaluate the call to turn it into a formula.
-  # look at calls using pryr or one of the other helper packages in adv R.
+  if(!any(type == c("score", "dfbeta", "dfbetas"))) {
 
+    stop(paste(type, " residuals have not been implemented."))
 
-  # add random effects as offset to data
-  data$offset <- svycoxme::re_to_offset(data = data, model = object)
-
-  # modify the call for to a coxph model with offsets
-
-  coxph_call <- match.call(coxme::coxme, object$call)
-
-  coxph_call[[1]] <- quote(survival::coxph)
-
-  coxph_call$formula <- fix_formula(coxph_call$formula)
-
-  # now should work.
-  coxph_call$data <- as.name("data")
-
-  # -1 so the function name isn't dropped
-  call_args <- names(coxph_call)[-1]
-
-  # drop anything in the call that isn't in the formals for coxph
-  # e.g. design
-  to_drop <- call_args[!(call_args %in% formalArgs(survival::coxph))]
-
-  for (i in to_drop) {
-    coxph_call[[i]] <- NULL
   }
 
-  fit_coxph <- eval(coxph_call)
 
-  resid(fit_coxph, type = type, ... = ...)
+  if (type == "dfbeta" || type == "dfbetas") {
+    otype <- type
+    type <- "score"
+    if (missing(weighted))
+      weighted <- TRUE
+  }
+
+  vv <- object$naive.var
+  if (is.null(vv)){
+    vv <- object$var
+  }
+
+  strat <- object$strata
+  if(!is.null(strat)) stop("Handling models with strata has not been implemented")
+
+  if (type == "score") {
+
+    parts <- make_parts.coxme(object, data, weights)
+
+    rr <- resid <- calc_ui(parts)
+
+    if (otype == "dfbeta") {
+        rr <- rr %*% vv
+    }
+    else if (otype == "dfbetas") {
+        rr <- (rr %*% vv) %*% diag(sqrt(1/diag(vv)))
+    }
+  }
+
+  if (!is.null(object$na.action)) {
+    rr <- naresid(object$na.action, rr)
+  }
+
+  rr
 
 }
 
