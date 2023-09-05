@@ -100,7 +100,7 @@ make_parts.coxme <- function(coxme.object, data, weights){
 
   theta <- unlist(coxme::VarCorr(coxme.object))
   parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
-  D <- parsed_data$reTrms$Lambdat
+  D <- solve(parsed_data$reTrms$Lambdat)
 
   penalty <- Matrix::crossprod(b, D)
 
