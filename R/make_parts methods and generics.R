@@ -332,7 +332,13 @@ get_information <- function(x, ...){
 
 get_information.coxph <- function(coxph.object){
 
-  vcov(coxph.object)
+    vv <- coxph.object$naive.var
+
+  if(is.null(vv)){
+    vv <- vcov(coxph.object)
+  }
+
+  vv
 
 }
 

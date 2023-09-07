@@ -137,12 +137,8 @@ svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...)
   if (length(nas))
     design<-design[-nas,]
 
-  # Problem: there is no residuals.coxme method.
-  # Solution !!!Done!!!: fit a coxph model with the random effects as offsets.
-  # write residuals.coxme # DONE
-
   # subset data here?
-  dbeta.subset <- resid(object = g, data = data, weights = weights(design), type = "dfbeta")
+  dbeta.subset <- resid(object = g, data = data, type = "dfbeta")
   if (nrow(design)==NROW(dbeta.subset)){
     dbeta<-as.matrix(dbeta.subset)
   } else {
