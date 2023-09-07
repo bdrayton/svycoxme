@@ -369,7 +369,7 @@ fix_formula <- function(formula){
 #' @export
 
 
-residuals.svycoxme <- function (object, data, weights,
+residuals.coxme <- function (object, data, weighted = TRUE,
                              type = c("score", "dfbeta", "dfbetas"), ...){
 
   type <- match.arg(type)
@@ -388,18 +388,18 @@ residuals.svycoxme <- function (object, data, weights,
   }
 
   # vv <- object$naive.var
-  if (is.null(vv)){
+  # if (is.null(vv)){
     vv <- get_information.coxme(object)
-  }
+  # }
 
   strat <- object$strata
   if(!is.null(strat)) stop("Handling models with strata has not been implemented")
 
   if (type == "score") {
 
-    parts <- make_parts.coxme(object, data, weights)
+    parts <- make_parts.coxme(object, data)
 
-    rr <- resid <- calc_ui(parts)
+    rr <- resid <- calc_ui(parts, weighted = weighted)
 
     if (otype == "dfbeta") {
         rr <- rr %*% vv

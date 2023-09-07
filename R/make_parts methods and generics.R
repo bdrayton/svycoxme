@@ -9,7 +9,7 @@ make_parts <- function(x, data, ...){
 
 #' @export
 
-make_parts.coxme <- function(coxme.object, data, weights){
+make_parts.coxme <- function(coxme.object, data){
 
   # extract the formula from the object call.
   # eval in case a symbol was passed in e.g.
@@ -47,6 +47,10 @@ make_parts.coxme <- function(coxme.object, data, weights){
   time_start = time_start[time_order]
   time_stop = time_stop[time_order]
 
+  weights <- weights(coxme.object)
+  if(is.null(weights)){
+    weights <- rep(1, length(time_order))
+  }
   weights <- weights[time_order]
 
   ds_sorted <- data[time_order, ]
@@ -130,7 +134,7 @@ make_parts.coxme <- function(coxme.object, data, weights){
 
 #' @export
 
-make_parts.coxph <- function(coxph.object, data, weights){
+make_parts.coxph <- function(coxph.object, data){
 
   form <- eval(coxph.object$call[[2]])
 
@@ -165,6 +169,11 @@ make_parts.coxph <- function(coxph.object, data, weights){
   time_start = time_start[time_order]
   time_stop = time_stop[time_order]
 
+  # get weights from the model object
+  weights <- weights(coxph.object)
+  if(is.null(weights)){
+    weights <- rep(1, length(time_order))
+  }
   weights <- weights[time_order]
 
   X <- model.matrix(coxph.object)[time_order, , drop = FALSE]
@@ -367,15 +376,14 @@ calc_ui <- function(x, ...){
 #'
 #' @export
 
-calc_ui.coxph_parts <- function(parts){
-
+calc_ui.coxph_parts <- function(parts, weighted = TRUE){
 
   # it's easier to debug if you can access the parts without using parts$ or with()
-  env <- environment()
-
-  lapply(names(parts), function(part){
-    assign(part, parts[[part]], pos = env)
-  })
+  # env <- environment()
+  #
+  # lapply(names(parts), function(part){
+  #   assign(part, parts[[part]], pos = env)
+  # })
 
   n = nrow(parts$stat)
 
@@ -403,6 +411,10 @@ calc_ui.coxph_parts <- function(parts){
 
   lin_score <- lin_term1 - lin_term2
 
+  if (weighted) {
+    lin_score = parts$weights * lin_score
+  }
+
   lin_score
 
 }
@@ -411,7 +423,7 @@ calc_ui.coxph_parts <- function(parts){
 #'
 #' @export
 
-calc_ui.coxme_parts <- function(parts){
+calc_ui.coxme_parts <- function(parts, weighted = TRUE){
 
   n = sum(parts$weights)
 
@@ -465,6 +477,10 @@ calc_ui.coxme_parts <- function(parts){
   lin_term1 <- cbind(lin_term1_beta, lin_term1_b)
 
   lin_score <- lin_term1 - lin_term2
+
+  if (weighted) {
+    lin_score = parts$weights * lin_score
+  }
 
   lin_score
 
