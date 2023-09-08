@@ -21,6 +21,8 @@ make_parts.coxme <- function(coxme.object, data){
   # need to use getFixedFormula, otherwise model.frame may complain about random effects terms.
   response <- model.response(model.frame(lme4:::getFixedFormula(form), data))
 
+  n = nrow(response)
+
   response_type = attr(response, 'type')
 
   if(response_type == "right"){
@@ -64,6 +66,8 @@ make_parts.coxme <- function(coxme.object, data){
   Zt <- parsed_data$reTrms$Zt
   Z <- t(Zt)
 
+  nX <- ncol(X)
+
   # I think these need to be p*1 and k*1 matrices
   beta <- Matrix::Matrix(coxme::fixef(coxme.object), ncol = 1)
   # need to unlist these and line them up with Zt
@@ -75,7 +79,6 @@ make_parts.coxme <- function(coxme.object, data){
   # weighted
   exp_risk_score <- weights * exp(risk_score)
 
-  n = nrow(response)
   start_test <- time_stop > rep(time_start, each = n)
   stop_test  <- time_stop <= rep(time_stop, each = n)
 
@@ -83,8 +86,6 @@ make_parts.coxme <- function(coxme.object, data){
 
   # this is S0_hat in binder, a n * 1 matrix.
   S0 = Matrix::crossprod(in_risk_set_matrix, exp_risk_score)
-
-  nX <- ncol(X)
 
   # this is S1_hat, n * p matrix and n * q matrix
   exp_risk_score_X <- exp_risk_score[, rep(1, nX)] * X
@@ -177,6 +178,7 @@ make_parts.coxph <- function(coxph.object, data){
   weights <- weights[time_order]
 
   X <- model.matrix(coxph.object)[time_order, , drop = FALSE]
+  nX <- ncol(X)
 
   # I think these need to be p*1 and k*1 matrices
   beta <- Matrix::Matrix(coef(coxph.object), ncol = 1)
@@ -193,7 +195,7 @@ make_parts.coxph <- function(coxph.object, data){
 
   S0 = Matrix::crossprod(in_risk_set_matrix, exp_risk_score)
 
-  exp_risk_score_X <- exp_risk_score * X
+  exp_risk_score_X <- exp_risk_score[,rep(1, nX)] * X
 
   S1 <- Matrix::crossprod(in_risk_set_matrix, exp_risk_score_X)
 
@@ -391,8 +393,6 @@ calc_ui.coxph_parts <- function(parts, weighted = TRUE){
   #   assign(part, parts[[part]], pos = env)
   # })
 
-  n = nrow(parts$stat)
-
   lin_term2 <- parts$X
 
   lin_term2[] <- NA
@@ -430,8 +430,6 @@ calc_ui.coxph_parts <- function(parts, weighted = TRUE){
 #' @export
 
 calc_ui.coxme_parts <- function(parts, weighted = TRUE){
-
-  n = sum(parts$weights)
 
   lin_X_term2 <- parts$X
   lin_Z_term2 <- parts$Z
@@ -485,7 +483,7 @@ calc_ui.coxme_parts <- function(parts, weighted = TRUE){
   lin_score <- lin_term1 - lin_term2
 
   if (weighted) {
-    lin_score = parts$weights * lin_score
+    lin_score = parts$weights[,c(nXreps, nZreps)] * lin_score
   }
 
   lin_score
