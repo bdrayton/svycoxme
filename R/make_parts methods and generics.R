@@ -102,10 +102,20 @@ make_parts.coxme <- function(coxme.object, data){
 
   # this is the penalty matrix.
   # assume that each term has one theta. Must be shared frailty of some sort.
+  # need to weight it.
+
+  # get cluster level weight as... what?
+  # mean of all weights in the cluster? only works if all obs in the cluster are sampled. it which case, weight for any obs
+  # is the cluster level weight. this is our situation, so I just take one weight per cluster.
+
+  # cluster_weights = weights %*% Z / colSums(Z)
 
   theta <- unlist(coxme::VarCorr(coxme.object))
   parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
   D <- solve(parsed_data$reTrms$Lambdat)
+
+  # the slowest way of doing it...
+  # wD = diag(cluster_weights@x) %*% D
 
   penalty <- Matrix::crossprod(b, D)
 
@@ -475,10 +485,12 @@ calc_ui.coxme_parts <- function(parts, weighted = TRUE){
 
   lin_term1_b <- with(parts, {
     # don't ignore penalty
-    stat[, nZreps] * (Z - S1_Z/S0) - ui_penalty
+    if (weighted){
+      stat[, nZreps] * (Z - S1_Z/S0) - ui_penalty/weights[,nZreps]
+    } else {
+      stat[, nZreps] * (Z - S1_Z/S0) - ui_penalty
+    }
     # stat[, nZreps] * (Z - S1_Z/S0)
-
-
   })
 
   lin_term1 <- cbind(lin_term1_beta, lin_term1_b)
