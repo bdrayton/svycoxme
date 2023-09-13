@@ -109,8 +109,11 @@ make_parts.coxme <- function(coxme.object, data){
 
   penalty <- Matrix::crossprod(b, D)
 
-  # divided by n and repeated
-  ui_penalty <- (penalty/n)[rep(1, n),]
+  # # divided by n and repeated
+  # ui_penalty <- (penalty/n)[rep(1, n),]
+  # # split penalty among the relevant cluster.
+
+  ui_penalty = Z * (penalty/colSums(Z))[rep(1, n),]
 
   r <- list( stat = Matrix::Matrix(stat, ncol = 1),
              time_start = Matrix::Matrix(time_start, ncol = 1),
@@ -471,9 +474,9 @@ calc_ui.coxme_parts <- function(parts, weighted = TRUE){
   })
 
   lin_term1_b <- with(parts, {
-    # ignore penalty
-    # stat[, nZreps] * (Z - S1_Z/S0) - ui_penalty
-    stat[, nZreps] * (Z - S1_Z/S0)
+    # don't ignore penalty
+    stat[, nZreps] * (Z - S1_Z/S0) - ui_penalty
+    # stat[, nZreps] * (Z - S1_Z/S0)
 
 
   })
