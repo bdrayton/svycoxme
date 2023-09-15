@@ -77,7 +77,8 @@ svycontrast.svrepcoxme <- function(){
 #'
 #' @export
 
-svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...){
+svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, ...){
+
   subset<-substitute(subset)
   subset<-eval(subset, model.frame(design),parent.frame())
   if (!is.null(subset))
@@ -169,7 +170,7 @@ svycoxme.survey.design<-function(formula,design, subset=NULL, rescale=TRUE, ...)
 
   g$wald.test<-coef(g)%*%solve(g$var, coef(g))
   g$ll<-g$loglik
-  g$loglik<-NULL
+  # g$loglik<-NULL
   g$rscore<-NULL
   g$score<-NA
   g$degf.resid<-degf(design)-length(coef(g)[!is.na(coef(g))])+1
@@ -414,10 +415,34 @@ residuals.coxme <- function (object, data, weighted = TRUE,
 }
 
 
+#' @export
+#'
 
+summary.svycoxme <- function(object, ...) {
+
+  print(object$survey.design, varnames = FALSE, design.summaries = FALSE, ...)
+  NextMethod()
+
+}
+
+
+#' @export
+#'
+
+print.svycoxme <- function (x, ...) {
+
+  print(x$survey.design, varnames = FALSE, design.summaries = FALSE, ...)
+  NextMethod()
+
+}
 
 ################
 # print methods for svycoxme
+
+# for the summary method, look at the svycoxph methods.
+# they print the sampling design, and then use the coxph method, but
+# the object has been modified to print correctly with teh coxph method.
+
 
 # this is coxme::print.coxme
 # function (x, rcoef = FALSE, digits = options()$digits, ...)
