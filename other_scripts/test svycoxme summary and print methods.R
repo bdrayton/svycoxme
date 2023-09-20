@@ -54,6 +54,18 @@ svycoxme_fit_bootstrap <- eval(bquote( svycoxme(form, des = my_des_bootstrap) ))
 
 debugonce(svycoxme::summary.svycoxme)
 
+svycoxme_fit_toy <- svycoxme_fit
+
+class(svycoxme_fit_toy) <- "svycoxme"
+
+class(svycoxme_fit)
+
+print(svycoxme_fit$survey.design)
+
+trace(summary.svycoxme)
+
+summary(svycoxme_fit)
+
 test_fit <- svycoxph(survival::Surv(stat_time, stat)~ X1 + X2 + X3 + Z1, design = my_des)
 
 
@@ -63,7 +75,12 @@ class(test_fit)
 
 debugonce(coxme:::summary.coxme)
 debugonce(coxme:::print.coxme)
+
 summary(svycoxme_fit)
+
+coef(svycoxme_fit)
+
+methods(class = "coxme")
 
 
 summary(test_fit)
@@ -82,9 +99,6 @@ summary(svycoxme_fit)
 
 summary(svycoxme_fit_jackknife)
 summary(svycoxme_fit_jackknife)
-
-
-
 
 
 
