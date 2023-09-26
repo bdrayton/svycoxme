@@ -22,10 +22,10 @@ pop <- dplyr::mutate(the_data, id = M)
 
 # sample from it
 # one cluster sample
-pop_clusters <- dplyr::select(pop, id, Z1) %>%
+pop_clusters <- dplyr::distinct(pop, id, Z1) %>%
   dplyr::mutate(pr_sel = 2/75 * (1 + Z1))
 
-sample_of_cluster = dplyr::slice_sample(pop_clusters, n = 100, weight_by = pr_sel)
+sample_of_cluster = dplyr::slice_sample(pop_clusters, n = 50, weight_by = pr_sel)
 
 my_samp <- pop[pop$id %in% sample_of_cluster$id, ]
 
@@ -49,10 +49,10 @@ my_des_jackknife <- as.svrepdesign(my_des, type = "JK1")
 my_des_bootstrap <- as.svrepdesign(my_des, type = "bootstrap")
 
 svycoxme_fit <- eval(bquote( svycoxme(.(form), des = my_des) ))
-svycoxme_fit_jackknife <- eval(bquote( svycoxme(form, des = my_des_jackknife) ))
-svycoxme_fit_bootstrap <- eval(bquote( svycoxme(form, des = my_des_bootstrap) ))
 
-debugonce(svycoxme::summary.svycoxme)
+svycoxme_fit_jackknife <- svycoxme(survival::Surv(stat_time, stat)~ X1 + X2 + X3 + Z1 + (1|id),
+                                   des = my_des_jackknife)
+
 
 svycoxme_fit_toy <- svycoxme_fit
 
@@ -68,20 +68,34 @@ summary(svycoxme_fit)
 
 test_fit <- svycoxph(survival::Surv(stat_time, stat)~ X1 + X2 + X3 + Z1, design = my_des)
 
-
-survey:::print.svycoxph
-
-class(test_fit)
-
-debugonce(coxme:::summary.coxme)
-debugonce(coxme:::print.coxme)
-
+svycoxme_fit_bootstrap <- svycoxme(survival::Surv(stat_time, stat)~ X1 + X2 + X3 + Z1 + (1|id),
+                                   des = my_des_bootstrap)
 summary(svycoxme_fit)
 
 coef(svycoxme_fit)
 
 methods(class = "coxme")
 
+debugonce(survey:::summary.svycoxph)
+summary(svycoxph_fit)
+
+class(svycoxme_fit$survey.design)
+
+debugonce(summary.svycoxme)
+summary(svycoxme_fit)
+
+debugonce(print.svycoxme)
+
+print.svycoxme(svycoxme_fit)
+
+
+summary(svycoxme_fit_jackknife)
+summary(svycoxme_fit_bootstrap)
+
+class(svycoxme_fit)
+library(pryr)
+
+ftype(summary)
 
 summary(test_fit)
 
@@ -92,6 +106,10 @@ survey:::summary.svycoxph
 summary.svycoxme
 
 methods(summary)
+
+class(svycoxme_fit$survey.design)
+
+survey:::print.survey.design2
 
 
 

@@ -216,6 +216,8 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
     stop("all variables must be in design= argument")
   .survey.prob.weights <- pwts
   full <- with(data, eval(g))
+  # full <- eval(g)
+
   # Not needed with coxme
   # if (inherits(full, "coxph.penal"))
   #   warning("svycoxph does not support penalised terms")
