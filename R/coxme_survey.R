@@ -471,6 +471,18 @@ predict.svycoxme <- function(x, ...){
 
   warning("predict has not been implemented for \"class = svycoxme\"" )
 
+  # this could be the method to use for data generation.
+  # or something similar, that takes:
+  # a data set
+  # a model formula
+  # fixed and random effects
+  # further specification of the event scenario (recurrent, clustered, etc)
+  # returns:
+  # a matrix of responses, approriately identified, structure defined by the
+  # Surv() call, plus any other specs required.
+
+
+
 }
 
 #' @method vcov svycoxme

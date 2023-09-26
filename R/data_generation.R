@@ -54,17 +54,17 @@ check_var_labels <- function(var_labels, dist_labels){
 #'
 #' @export
 
-one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_effect_variance = list(), seed = NULL,
+one_dataset <- function(formula, dists, dist_args, error, stat, coefficients = c(), random_effect_variance = list(), seed = NULL,
                         random_effect_seed = NULL){
 
-  arbitraty_seed <- runif(1, -99999, 99999)
+  # arbitraty_seed <- runif(1, -99999, 99999)
 
-  if(!is.null(random_effect_seed) & (length(random_effect_variance) != length(random_effect_seed)))
-    stop("If random_effect_seed is not NULL, it must be the same length as random_effect_variance")
+  # if(!is.null(random_effect_seed) & (length(random_effect_variance) != length(random_effect_seed)))
+  #   stop("If random_effect_seed is not NULL, it must be the same length as random_effect_variance")
 
   original_formula <- formula
 
-  if(!is.null(seed)) set.seed(seed)
+  # if(!is.null(seed)) set.seed(seed)
 
   fixed_terms <- stats::terms(lme4::nobars(formula))
 
@@ -95,13 +95,35 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
 
   check_var_labels(variables, names(dists))
 
-  vars <- lapply(dists[variables], lazyeval::f_eval, data = dist_args)
+  # add in sequential evaluation of the dist arguments, and an evironment to put the
+  # resulting variables. allows subsequent dists to refererence previously defined variables.
+  # vars <- lapply(dists[variables], lazyeval::f_eval, data = dist_args)
+  #
+  # vars_df <- list2DF(vars)
 
-  vars_df <- list2DF(vars)
+  var_env <- new.env()
 
-  error <- lazyeval::f_eval(dists$error, data = dist_args)
+  invisible(lapply(names(dist_args), function(arg){
+    assign(arg, dist_args[[arg]], pos = var_env)
+  }))
 
-  vars_df$stat <- lazyeval::f_eval(dists$stat, data = dist_args)
+  # need variables in the order or dist names.
+  # easier to just pull dist names.
+  dist_names <- names(dists)
+
+  for (i in seq(length(dist_names))) {
+
+    assign(dist_names[i],
+           do.call("eval", list(expr = dists[[i]][[2]], envir = var_env), envir = var_env),
+           envir = var_env)
+
+  }
+
+  vars_df <- eval(parse(text = paste("data.frame(", paste(dist_names, collapse = ","), ")")), envir = var_env)
+
+  error <- lazyeval::f_eval(error, data = dist_args)
+
+  vars_df$stat <- lazyeval::f_eval(stat, data = dist_args)
 
   lp_random_effects <- list()
 
@@ -133,7 +155,7 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
       group_counts <- table(re_factor)
 
       # set a seed
-      if(!is.null(random_effect_seed)) set.seed(random_effect_seed[[re]])
+      # if(!is.null(random_effect_seed)) set.seed(random_effect_seed[[re]])
 
       b <- rnorm(length(group_counts), mean = 0, sd = sqrt(random_effect_variance[[re]]))
 
@@ -156,7 +178,7 @@ one_dataset <- function(formula, dists, dist_args, coefficients = c(), random_ef
     random_effects <- lapply(lp_random_effects_list, attr, "random_effects")
 
     # reset randomness
-    set.seed(arbitraty_seed)
+    # set.seed(arbitraty_seed)
 
   } else {
     random_effects <- NULL
