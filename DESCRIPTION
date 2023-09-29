@@ -18,7 +18,10 @@ RoxygenNote: 7.2.3
 Imports:
     dplyr,
     tidyr,
-	rlang,
-	tibble,
-	forcats
+    rlang,
+    tibble,
+    forcats,
+    Rcpp
 Roxygen: list(markdown = TRUE)
+LinkingTo: 
+    Rcpp

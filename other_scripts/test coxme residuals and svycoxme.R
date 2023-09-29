@@ -15,9 +15,9 @@ the_data <- one_dataset(~X1 + X2 + X3 + (1 | M),
                         dists = list(X1 = ~rnorm(n),
                                      X2 = ~rep(rnorm(k), each = nk),
                                      X3 = ~rep(rbinom(k, 1, 0.5), each = nk),
-                                     M = ~rep(1:k, each = nk),
-                                     error = ~rexp(n, 10),
-                                     stat = ~sample(rep(c(0, 1), round(n * c(0.2, 0.8))), n)),
+                                     M = ~rep(1:k, each = nk)),
+                        error = ~rexp(n, 10),
+                        stat = ~sample(rep(c(0, 1), round(n * c(0.2, 0.8))), n),
                         dist_args = list(k = k, nk = nk,
                                          n = k * nk),
                         coefficients = true_coefs,
@@ -47,7 +47,10 @@ my_samp <- my_samp[order(my_samp$stat_time), ]
 coxme_fit <- coxme::coxme(survival::Surv(stat_time, stat)~ X1 + X2 + X3 + (1|id), data = my_samp, weights = rweights)
 
 # calculate ui and get information
-parts <- make_parts(coxme_fit, my_samp, weights = my_samp$weights)
+parts <- make_parts(coxme_fit, my_samp)
+
+debugonce(residuals.coxme)
+resid(coxme_fit, data = my_samp, type = 'dfbeta')
 
 ui <- calc_ui(parts)
 vv <- get_information(coxme_fit)
@@ -67,7 +70,7 @@ svycoxme_fit <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | i
 
 svycoxme_fit_jackknife$var
 
-svycoxme_fit$var[1:3, 1:3]
+svycoxme_fit$var
 
 
 

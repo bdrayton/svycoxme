@@ -388,7 +388,13 @@ residuals.coxme <- function (object, data, weighted = TRUE,
 
   # vv <- object$naive.var
   # if (is.null(vv)){
-    vv <- get_information.coxme(object)
+
+  # get_information get the covariance matrix for fixed and random effects
+  # i only need fixed effects because i'm ignoring the random effects (too slow to compute the residuals)
+    # vv <- get_information.coxme(object)
+
+    vv <- vcov(object)
+
   # }
 
   strat <- object$strata
@@ -398,7 +404,21 @@ residuals.coxme <- function (object, data, weighted = TRUE,
 
     parts <- make_parts.coxme(object, data)
 
-    rr <- resid <- calc_ui(parts, weighted = weighted)
+    # the C++ method needs regular matrices
+    parts <- lapply(parts, as.matrix)
+
+    # rr <- resid <- calc_ui(parts, weighted = weighted)
+    rr <- with(parts,{
+          C_calc_ui(time_start = time_start,
+                    time_stop = time_stop,
+                    stat = stat,
+                    weights = weights,
+                    exp_risk_score = exp_risk_score,
+                    S0 = S0,
+                    S1_X = S1_X,
+                    X = X,
+                    weighted = TRUE)
+          })
 
     if (otype == "dfbeta") {
         rr <- rr %*% vv
@@ -492,11 +512,7 @@ predict.svycoxme <- function(x, ...){
 
 vcov.svycoxme <- function(object, ...){
 
-    vmat <- object$var
-    vname <- names(object$coefficients)
-    dimnames(vmat) <- list(vname, vname)
-
-    vmat
+NextMethod()
 
 }
 

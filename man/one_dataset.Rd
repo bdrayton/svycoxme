@@ -8,6 +8,8 @@ one_dataset(
   formula,
   dists,
   dist_args,
+  error,
+  stat,
   coefficients = c(),
   random_effect_variance = list(),
   seed = NULL,
