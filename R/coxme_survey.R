@@ -188,6 +188,7 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, .
 #' @export
 
 svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NULL, ...,
+                                    control = coxme::coxme.control(),
           return.replicates = FALSE, na.action, multicore = getOption("survey.multicore")){
   subset <- substitute(subset)
   subset <- eval(subset, design$variables, parent.frame())
@@ -215,6 +216,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   if (!all(all.vars(formula) %in% names(data)))
     stop("all variables must be in design= argument")
   .survey.prob.weights <- pwts
+  g$control = control
   full <- with(data, eval(g))
   # full <- eval(g)
 
