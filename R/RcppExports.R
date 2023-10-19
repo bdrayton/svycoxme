@@ -19,6 +19,17 @@ C_calc_ui <- function(time_start, time_stop, stat, weights, exp_risk_score, S0, 
     .Call(`_svycoxme_C_calc_ui`, time_start, time_stop, stat, weights, exp_risk_score, S0, S1_X, X, weighted)
 }
 
+#' C_draw_event_times
+#' 
+#' Draw event times times using possibly time-varying covariate data
+#'
+#' @param subject_id unique identifier for subject
+#' 
+#' @export
+C_draw_event_times <- function(subject_id) {
+    .Call(`_svycoxme_C_draw_event_times`, subject_id)
+}
+
 #' rcpp_hello_world
 #' 
 #' This function returns a list with character and numeric elements,  demonstrating the use of lists in C++, and testing that Rcpp is integrated properly into the package build process.  

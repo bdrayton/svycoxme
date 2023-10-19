@@ -10,6 +10,7 @@
   subset = NULL,
   rescale = NULL,
   ...,
+  control = coxme::coxme.control(),
   return.replicates = FALSE,
   na.action,
   multicore = getOption("survey.multicore")

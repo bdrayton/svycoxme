@@ -77,7 +77,7 @@ svycontrast.svrepcoxme <- function(){
 #'
 #' @export
 
-svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, ...){
+svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, control = coxme::coxme.control(), ...){
 
   subset<-substitute(subset)
   subset<-eval(subset, model.frame(design),parent.frame())
@@ -102,7 +102,7 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, .
   # g$data<-quote(data)
   g$data <- as.name("data")
   g$subset<-quote(.survey.prob.weights>0)
-
+  g$control = control
   # g$model <- TRUE
   # the equivalent to this would be to set x = TRUE and y = TRUE
   # that may be useful if I define how residuals.coxme works.

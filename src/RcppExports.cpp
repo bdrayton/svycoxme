@@ -29,6 +29,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// C_draw_event_times
+Rcpp::IntegerVector C_draw_event_times(Rcpp::IntegerVector& subject_id);
+RcppExport SEXP _svycoxme_C_draw_event_times(SEXP subject_idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector& >::type subject_id(subject_idSEXP);
+    rcpp_result_gen = Rcpp::wrap(C_draw_event_times(subject_id));
+    return rcpp_result_gen;
+END_RCPP
+}
 // rcpp_hello_world
 List rcpp_hello_world();
 RcppExport SEXP _svycoxme_rcpp_hello_world() {
@@ -42,6 +53,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_svycoxme_C_calc_ui", (DL_FUNC) &_svycoxme_C_calc_ui, 9},
+    {"_svycoxme_C_draw_event_times", (DL_FUNC) &_svycoxme_C_draw_event_times, 1},
     {"_svycoxme_rcpp_hello_world", (DL_FUNC) &_svycoxme_rcpp_hello_world, 0},
     {NULL, NULL, 0}
 };

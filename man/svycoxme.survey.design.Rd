@@ -4,7 +4,14 @@
 \alias{svycoxme.survey.design}
 \title{svycoxme.survey.design}
 \usage{
-\method{svycoxme}{survey.design}(formula, design, subset = NULL, rescale = TRUE, ...)
+\method{svycoxme}{survey.design}(
+  formula,
+  design,
+  subset = NULL,
+  rescale = TRUE,
+  control = coxme::coxme.control(),
+  ...
+)
 }
 \description{
 check next release for the fix to the rescale issues.
