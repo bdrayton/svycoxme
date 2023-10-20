@@ -20,14 +20,28 @@ C_calc_ui <- function(time_start, time_stop, stat, weights, exp_risk_score, S0, 
 }
 
 #' C_draw_event_times
-#' 
+#'
 #' Draw event times times using possibly time-varying covariate data
 #'
 #' @param subject_id unique identifier for subject
-#' 
+#'
 #' @export
-C_draw_event_times <- function(subject_id) {
-    .Call(`_svycoxme_C_draw_event_times`, subject_id)
+C_draw_event_times <- function(id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, baseline_hazard_end, end_of_follow_up, origin) {
+    .Call(`_svycoxme_C_draw_event_times`, id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, baseline_hazard_end, end_of_follow_up, origin)
+}
+
+#' C_rpexp
+#'
+#' Draw a single random number from a piecewise exponential distribution.
+#' See msm::rpexp()
+#'
+#' @param rate vector of event rates
+#' @param t vector same length as rate, giving the times the rate changes. The values of t should be ascending order.
+#' @param start numeric scalar; delayed entry time. The random deviates will be left truncated.
+#'
+#' @export
+C_rpexp <- function(n, rate, t, start) {
+    .Call(`_svycoxme_C_rpexp`, n, rate, t, start)
 }
 
 #' rcpp_hello_world

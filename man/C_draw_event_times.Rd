@@ -4,7 +4,19 @@
 \alias{C_draw_event_times}
 \title{C_draw_event_times}
 \usage{
-C_draw_event_times(subject_id)
+C_draw_event_times(
+  id,
+  start_time,
+  end_time,
+  status,
+  X,
+  risk_score,
+  baseline_hazard,
+  baseline_hazard_start,
+  baseline_hazard_end,
+  end_of_follow_up,
+  origin
+)
 }
 \arguments{
 \item{subject_id}{unique identifier for subject}
