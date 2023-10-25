@@ -1,6 +1,8 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+// [[Rcpp::interfaces(r, cpp)]]
+
 //' C_rpexp
 //'
 //' Draw a single random number from a piecewise exponential distribution.

@@ -53,3 +53,7 @@ rcpp_hello_world <- function() {
     .Call(`_svycoxme_rcpp_hello_world`)
 }
 
+# Register entry points for exported C++ functions
+methods::setLoadAction(function(ns) {
+    .Call('_svycoxme_RcppExport_registerCCallable', PACKAGE = 'svycoxme')
+})
