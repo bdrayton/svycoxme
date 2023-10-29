@@ -15,7 +15,8 @@ C_draw_event_times(
   baseline_hazard_start,
   baseline_hazard_end,
   end_of_follow_up,
-  origin
+  origin,
+  single
 )
 }
 \arguments{
