@@ -33,8 +33,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // C_draw_event_times
-Rcpp::List C_draw_event_times(Rcpp::IntegerVector id, Rcpp::NumericVector start_time, Rcpp::NumericVector end_time, Rcpp::IntegerVector status, Rcpp::NumericMatrix X, Rcpp::NumericVector risk_score, Rcpp::NumericVector baseline_hazard, Rcpp::NumericVector baseline_hazard_start, Rcpp::NumericVector baseline_hazard_end, double end_of_follow_up, double origin, int single);
-RcppExport SEXP _svycoxme_C_draw_event_times(SEXP idSEXP, SEXP start_timeSEXP, SEXP end_timeSEXP, SEXP statusSEXP, SEXP XSEXP, SEXP risk_scoreSEXP, SEXP baseline_hazardSEXP, SEXP baseline_hazard_startSEXP, SEXP baseline_hazard_endSEXP, SEXP end_of_follow_upSEXP, SEXP originSEXP, SEXP singleSEXP) {
+Rcpp::List C_draw_event_times(Rcpp::IntegerVector id, Rcpp::NumericVector start_time, Rcpp::NumericVector end_time, Rcpp::IntegerVector status, Rcpp::NumericMatrix X, Rcpp::NumericVector risk_score, Rcpp::NumericVector baseline_hazard, Rcpp::NumericVector baseline_hazard_start, double origin, int single, int maximum_events);
+RcppExport SEXP _svycoxme_C_draw_event_times(SEXP idSEXP, SEXP start_timeSEXP, SEXP end_timeSEXP, SEXP statusSEXP, SEXP XSEXP, SEXP risk_scoreSEXP, SEXP baseline_hazardSEXP, SEXP baseline_hazard_startSEXP, SEXP originSEXP, SEXP singleSEXP, SEXP maximum_eventsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -46,11 +46,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type risk_score(risk_scoreSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type baseline_hazard(baseline_hazardSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type baseline_hazard_start(baseline_hazard_startSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type baseline_hazard_end(baseline_hazard_endSEXP);
-    Rcpp::traits::input_parameter< double >::type end_of_follow_up(end_of_follow_upSEXP);
     Rcpp::traits::input_parameter< double >::type origin(originSEXP);
     Rcpp::traits::input_parameter< int >::type single(singleSEXP);
-    rcpp_result_gen = Rcpp::wrap(C_draw_event_times(id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, baseline_hazard_end, end_of_follow_up, origin, single));
+    Rcpp::traits::input_parameter< int >::type maximum_events(maximum_eventsSEXP);
+    rcpp_result_gen = Rcpp::wrap(C_draw_event_times(id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, origin, single, maximum_events));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -120,7 +119,7 @@ RcppExport SEXP _svycoxme_RcppExport_registerCCallable() {
 
 static const R_CallMethodDef CallEntries[] = {
     {"_svycoxme_C_calc_ui", (DL_FUNC) &_svycoxme_C_calc_ui, 9},
-    {"_svycoxme_C_draw_event_times", (DL_FUNC) &_svycoxme_C_draw_event_times, 12},
+    {"_svycoxme_C_draw_event_times", (DL_FUNC) &_svycoxme_C_draw_event_times, 11},
     {"_svycoxme_C_rpexp", (DL_FUNC) &_svycoxme_C_rpexp, 4},
     {"_svycoxme_rcpp_hello_world", (DL_FUNC) &_svycoxme_rcpp_hello_world, 0},
     {"_svycoxme_RcppExport_registerCCallable", (DL_FUNC) &_svycoxme_RcppExport_registerCCallable, 0},

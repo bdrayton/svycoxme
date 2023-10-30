@@ -26,8 +26,8 @@ C_calc_ui <- function(time_start, time_stop, stat, weights, exp_risk_score, S0, 
 #' @param subject_id unique identifier for subject
 #'
 #' @export
-C_draw_event_times <- function(id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, baseline_hazard_end, end_of_follow_up, origin, single) {
-    .Call(`_svycoxme_C_draw_event_times`, id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, baseline_hazard_end, end_of_follow_up, origin, single)
+C_draw_event_times <- function(id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, origin, single, maximum_events = 1000L) {
+    .Call(`_svycoxme_C_draw_event_times`, id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, origin, single, maximum_events)
 }
 
 #' C_rpexp
@@ -55,5 +55,5 @@ rcpp_hello_world <- function() {
 
 # Register entry points for exported C++ functions
 methods::setLoadAction(function(ns) {
-    .Call(`_svycoxme_RcppExport_registerCCallable`)
+    .Call('_svycoxme_RcppExport_registerCCallable', PACKAGE = 'svycoxme')
 })

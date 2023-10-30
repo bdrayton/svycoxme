@@ -16,7 +16,8 @@ C_draw_event_times(
   baseline_hazard_end,
   end_of_follow_up,
   origin,
-  single
+  single,
+  maximum_events = 1000L
 )
 }
 \arguments{

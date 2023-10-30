@@ -28,7 +28,7 @@ Rcpp::NumericVector C_rpexp(int n,
   double the_rate;
   double last_rate = rate[n_rate-1];
 
-  Rcpp::NumericVector original_rate = rate;
+  Rcpp::NumericVector original_rate = Rcpp::clone(rate);
 
   double diff_t;
   Rcpp::NumericVector H = {0};
@@ -37,10 +37,12 @@ Rcpp::NumericVector C_rpexp(int n,
 
   Rcpp::NumericVector e (n);
 
+  Rcpp::IntegerVector index ;
+
   if ( (n_rate == 1) | (start > t[n_t-1]) ) {
 
     for(int i = 0; i < n; i++){
-      random_draw[i] = R::rexp(1/last_rate);
+      random_draw[i] = start + R::rexp(1/last_rate);
     }
 
     return(random_draw);
@@ -48,9 +50,10 @@ Rcpp::NumericVector C_rpexp(int n,
   }
 
   if (start > t[0]) {
+
     // remove rates and times before the start time.
     for (int i = (n_t-1); i > -1; i--){
-      if(start > t[i]){
+      if(start >= t[i]){
           t.erase(i);
           rate.erase(i);
           n_deleted_rate++;
@@ -61,6 +64,7 @@ Rcpp::NumericVector C_rpexp(int n,
 
     t.push_front(start);
     rate.push_front(the_rate);
+
   }
 
   for (int i = 0; i < (t.length()-1); i++){
