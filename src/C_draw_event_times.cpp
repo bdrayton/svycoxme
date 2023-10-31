@@ -34,6 +34,7 @@ Rcpp::List          C_draw_event_times(Rcpp::IntegerVector id,
     Rcpp::IntegerVector new_status;
 
     // for generating a new_X matrix later (I need to calculate number of rows first)
+    int X_row_counter = 0;
     Rcpp::IntegerVector all_subjects_new_X_rows;
 
     // for iterating over the data
@@ -67,6 +68,9 @@ Rcpp::List          C_draw_event_times(Rcpp::IntegerVector id,
         Rcpp::NumericVector subject_end_time;
         Rcpp::IntegerVector subject_status;
 
+        // for populating new_X later on
+        int subject_X_start_row = X_row_counter;
+
         // outputs
         Rcpp::NumericVector subject_event_times;
 
@@ -77,6 +81,8 @@ Rcpp::List          C_draw_event_times(Rcpp::IntegerVector id,
         Rcpp::NumericVector current_event_time_NV;
         double current_event_time {origin};
 
+
+
         // populate the temp variables
         // iterate over data to generate hazards and times for subject i
         for (int j = 0; j < n_id; j++) {
@@ -86,6 +92,8 @@ Rcpp::List          C_draw_event_times(Rcpp::IntegerVector id,
             // assign data from subject i to the temporary variables,
             // generate the subject's hazard
             if (temp_in) {
+
+              X_row_counter++;
 
               subject_start_time.push_back(start_time[j]);
               subject_end_time.push_back(end_time[j]);
@@ -140,8 +148,8 @@ Rcpp::List          C_draw_event_times(Rcpp::IntegerVector id,
                 reps++;
 
                 if(reps > maximum_events) {
-                  Rcout << "Events went past maximum_events for subject_id : " << subject_id << "\n";
-                  break;
+                    Rcout << "Events went past maximum_events for subject_id : " << subject_id << "\n";
+                    break;
                 }
 
             }
@@ -172,7 +180,7 @@ Rcpp::List          C_draw_event_times(Rcpp::IntegerVector id,
                     new_start_time.push_back(subject_start_time[k]);
                     new_end_time.push_back(subject_end_time[k]);
                     new_status.push_back(subject_status[k]);
-                    all_subjects_new_X_rows.push_back(k);
+                    all_subjects_new_X_rows.push_back(subject_X_start_row + k);
 
                 } else if (in_interval) {
                     if (ends_at_same_time){
@@ -180,13 +188,13 @@ Rcpp::List          C_draw_event_times(Rcpp::IntegerVector id,
                         new_start_time.push_back(subject_start_time[k]);
                         new_end_time.push_back(subject_end_time[k]);
                         new_status.push_back(1);
-                        all_subjects_new_X_rows.push_back(k);
+                        all_subjects_new_X_rows.push_back(subject_X_start_row + k);
                     } else {
                         new_id.push_back(subject_id);
                         new_start_time.push_back(subject_start_time[k]);
                         new_end_time.push_back(subject_event_times[j]);
                         new_status.push_back(1);
-                        all_subjects_new_X_rows.push_back(k);
+                        all_subjects_new_X_rows.push_back(subject_X_start_row + k);
                         // edit start time. comparisons will start here with the next event time.
                         subject_start_time[k] = subject_event_times[j];
                         comp_start = k;

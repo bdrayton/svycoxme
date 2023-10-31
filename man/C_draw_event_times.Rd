@@ -13,8 +13,6 @@ C_draw_event_times(
   risk_score,
   baseline_hazard,
   baseline_hazard_start,
-  baseline_hazard_end,
-  end_of_follow_up,
   origin,
   single,
   maximum_events = 1000L

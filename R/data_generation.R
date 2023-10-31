@@ -255,3 +255,212 @@ one_dataset <- function(formula, dists, dist_args, error, stat, coefficients = c
 
 
 
+#' Create a dataset of single or recurrent events for subjects with possibly time-varying covariate data.
+#'
+#' @param formula Model equation for the data generation.
+#' @param data    Covariates in the \code{formula}.
+#' @param coefficients Named vector of fixed effect coefficients.
+#' @param random_effect_variance Named vector of random effects. Names must match random effect formula terms.
+#' @param id The data column that identifies observations belonging to one subject.
+#' @param baseline_hazard scalar or vector with stepwise hazards over time
+#' @param t change points for \code{baseline_hazard}
+#' @param event option for a single event or recurrent events per subject
+#' @param origin when the time scale starts
+#'
+#' @export
+
+
+draw_event_times <- function(formula, data, coefficients = c(), random_effect_variance = list(), id,
+                             baseline_hazard = 1, t = 0, event = c("single", "recurrent"),
+                             origin = 0) {
+
+  Call <- match.call()
+  event <- match.arg(event)
+
+  Call_id <- Call[["id"]]
+  if (is.null(Call_id)){
+    stop("id required")
+  } else if (is.name(Call_id)) {
+    idx <- as.character(Call_id)
+  }
+
+  fixed_terms <- stats::terms(lme4::nobars(formula))
+
+  # These are the fixed term variables in the formula, even if there are interactions.
+  fixed_term_variables <- colnames(attr(fixed_terms, "factors"))
+
+  bars = lme4::findbars(formula)
+
+  barnames = lme4:::barnames(bars)
+
+  random_terms = terms(as.formula(paste("~", paste(c(1, barnames), collapse = "+"))))
+
+  random_term_variables <- rownames(attr(random_terms, "factors"))
+
+  variables <- c(fixed_term_variables, random_term_variables)
+
+  if(attr(fixed_terms, "response") == 0) stop("formula must have a Surv response")
+
+  # strata
+  # find the strata spec in the form.
+  # make sure there is a baseline hazard for each stratum
+
+  # clustering. dont allow a cluster() call in the formula. instead ask for (1|cluster_id).
+  # Or allow it and convert it.
+  # will need an associated random effect.
+  # cluster in the sandwich means that the variances are cluster-specific. need to allow input of variance structure?
+
+  # data will have start and stop times, as specified, but only if there is time-varying covariates.
+  # otherwise there wont be times.
+  # and there wont be a stat variable.
+
+  Surv_Call <- Call$formula[[2]]
+  # get time names out of the Call.
+  # cant use the attribute, because the data need the variables in the call before calling model.frame.
+  # but I'll use the length of the Surv_call instead. This will probably break if anything but one or two times
+  # are passed to Surv. Maybe I need to evaluate Surv? Nope. need the vars first.
+
+  # Surv_evaluated <- eval(Surv_Call)
+
+  # if(attr(model_response, "type") == "counting"){
+  if(length(Surv_Call) == 4){
+    start_name <- Surv_Call[[2]]
+    stop_name <- Surv_Call[[3]]
+    status_name <- Surv_Call[[4]]
+
+    Surv_vars <- c(start_name, stop_name, status_name)
+
+    # } else if(attr(model_response, "type") == "right"){
+  } else if(length(Surv_Call) == 3) {
+    start_name <- "origin"
+    stop_name <- Surv_Call[[2]]    # actually called time, not stop
+    status_name <- Surv_Call[[3]]
+
+    if(start_name == stop_name) {stop("You need to call your event times something other than, 'origin'")}
+
+    Surv_vars <- c(start_name, stop_name, status_name)
+
+  }
+
+  # convert Surv_vars from a list of names to a character vector
+  Surv_vars <- sapply(Surv_vars, as.character)
+
+  # check if variables in the Surv() Call are already in the data set.
+  Surv_vars_in_data <- Surv_vars %in% colnames(data)
+  # add the ones that aren't
+  # need a message or warning? Probably not. Just explain in documentation
+  # message(paste(Surv_vars[Surv_vars_in_data], collapse = ", "), paste(" will be modified"))
+
+  if(any(!Surv_vars_in_data)){
+    data[Surv_vars[!Surv_vars_in_data]] <- double(length = nrow(data))
+  }
+
+  model_frame <- model.frame(lme4:::getFixedFormula(formula), data)
+  model_response <- model.response(model_frame)
+  X <- model_frame[, -1, drop = FALSE]
+
+  lp_random_effects <- list()
+
+  if(length(barnames)) {
+
+    data$ytemp <- 1
+
+    formula <- update(formula, ytemp ~ .)
+
+    parsed_data <- lme4::lFormula(formula, data = data)
+
+    data <- dplyr::select(data, -ytemp)
+
+    # for each random effect term, need to generate the random effect terms, and join them to the data.
+    # if terms don't exist in the data, they will be in flist.
+
+    re_terms <- names(parsed_data$reTrms$cnms)
+    names(re_terms) <- re_terms
+
+    if(length(re_terms) != length(random_effect_variance))
+      stop("I need one variance for each random effect term. Note that (1 | M1/M2) breaks down into M1, M2 and M1:M2")
+
+    # save the seed. It will be restored after this.
+
+    lp_random_effects_list <- lapply(re_terms, function(re){
+
+      re_factor <- parsed_data$reTrms$flist[[re]]
+
+      group_counts <- table(re_factor)
+
+      # set a seed
+      # if(!is.null(random_effect_seed)) set.seed(random_effect_seed[[re]])
+
+      b <- rnorm(length(group_counts), mean = 0, sd = sqrt(random_effect_variance[[re]]))
+
+      b_rep <- dplyr::left_join(data.frame(re_name = re_factor),
+                                data.frame(re_name = names(group_counts), re = b), by = "re_name")
+
+      # This is the random effect repeated for each observation
+      re <- b_rep$re
+
+      # this is the unique random effects
+      names(b) <- names(group_counts)
+      attr(re, "random_effects") <- b
+
+      re
+
+    })
+
+    lp_random_effects <- Reduce("cbind", lp_random_effects_list)
+
+    random_effects <- lapply(lp_random_effects_list, attr, "random_effects")
+
+    # reset randomness
+    # set.seed(arbitraty_seed)
+
+  } else {
+    random_effects <- NULL
+  }
+
+
+  # transpose non-zero length coefficients
+  if(length(coefficients))
+    coefficients <- t(coefficients)
+
+  risk_score_parts_list <- list(fixed = tcrossprod(as.matrix(data[, fixed_term_variables]), coefficients),
+                                random = lp_random_effects)
+
+  risk_score_parts_list <- risk_score_parts_list[lapply(risk_score_parts_list, length)>0]
+
+  risk_score_parts_matrix <- Reduce(cbind, risk_score_parts_list)
+
+  if(!is.null(risk_score_parts_matrix)) {
+    risk_score <- .rowSums(risk_score_parts_matrix,
+                           m = nrow(risk_score_parts_matrix), n = ncol(risk_score_parts_matrix))
+  } else {
+    risk_score <- rep(0, length(error))
+    data <- data.frame(stat_time = numeric(length(error)))
+  }
+
+  d_list <- C_draw_event_times(id = as.integer(my_data[,idx]),
+                               start_time = as.double(data[,Surv_vars[1]]),
+                               end_time = as.double(data[,Surv_vars[2]]),
+                               status = as.integer(data[,Surv_vars[3]]),
+                               X = as.matrix(X),
+                               risk_score = risk_score,
+                               baseline_hazard = baseline_hazard,
+                               baseline_hazard_start = t,
+                               origin = origin,
+                               single = as.integer(event == "single"))
+
+  data_with_events <- data.frame(d_list[[1]],
+                                 d_list[[5]])
+
+  names(data_with_events) <- c(idx, colnames(X))
+
+  data_with_events[Surv_vars[1]] <- d_list[[2]]
+  data_with_events[Surv_vars[2]] <- d_list[[3]]
+  data_with_events[Surv_vars[3]] <- d_list[[4]]
+
+  # lets see where we're at at this point.
+  return(data_with_events)
+
+}
+
+
