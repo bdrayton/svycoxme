@@ -77,7 +77,7 @@ svycontrast.svrepcoxme <- function(){
 #'
 #' @export
 
-svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, control = coxme::coxme.control(), ...){
+svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, control = coxme::coxme.control(), include_re = FALSE, ...){
 
   subset<-substitute(subset)
   subset<-eval(subset, model.frame(design),parent.frame())
@@ -139,7 +139,7 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, c
     design<-design[-nas,]
 
   # subset data here?
-  dbeta.subset <- resid(object = g, data = data, type = "dfbeta")
+  dbeta.subset <- resid(object = g, data = data, type = "dfbeta", include_re = include_re)
   if (nrow(design)==NROW(dbeta.subset)){
     dbeta<-as.matrix(dbeta.subset)
   } else {
@@ -370,7 +370,7 @@ fix_formula <- function(formula){
 #' @export
 
 
-residuals.coxme <- function (object, data, weighted = TRUE,
+residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
                              type = c("score", "dfbeta", "dfbetas"), ...){
 
   type <- match.arg(type)
@@ -393,11 +393,13 @@ residuals.coxme <- function (object, data, weighted = TRUE,
 
   # get_information get the covariance matrix for fixed and random effects
   # i only need fixed effects because i'm ignoring the random effects (too slow to compute the residuals)
-    # vv <- get_information.coxme(object)
+  # actually, I may want, depends on include_re.
 
+  if(include_re){
+    vv <- get_information.coxme(object)
+  } else {
     vv <- vcov(object)
-
-  # }
+  }
 
   strat <- object$strata
   if(!is.null(strat)) stop("Handling models with strata has not been implemented")
@@ -410,6 +412,7 @@ residuals.coxme <- function (object, data, weighted = TRUE,
     parts <- lapply(parts, as.matrix)
 
     # rr <- resid <- calc_ui(parts, weighted = weighted)
+    if(!include_re){
     rr <- with(parts,{
           C_calc_ui(time_start = time_start,
                     time_stop = time_stop,
@@ -421,6 +424,22 @@ residuals.coxme <- function (object, data, weighted = TRUE,
                     X = X,
                     weighted = TRUE)
           })
+    } else {
+      rr <- with(parts,{
+        C_calc_ui(time_start = time_start,
+                  time_stop = time_stop,
+                  stat = stat,
+                  weights = weights,
+                  exp_risk_score = exp_risk_score,
+                  S0 = S0,
+                  S1_X = cbind(S1_X, S1_Z),
+                  X = cbind(X, Z),
+                  weighted = TRUE)
+      })
+
+      rr = rr - cbind(matrix(0, nrow = nrow(rr), ncol = ncol(parts$X)), parts$ui_penalty)
+
+    }
 
     if (otype == "dfbeta") {
         rr <- rr %*% vv
