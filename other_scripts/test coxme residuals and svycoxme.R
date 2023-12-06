@@ -61,17 +61,18 @@ uivv <- ui %*% vv
 # define design, add ui
 my_des <- svydesign(~id, weights = ~weights, data = my_samp)
 my_des_jackknife <- as.svrepdesign(my_des, type = "JK1")
-# my_des_bootstrap <- as.svrepdesign(my_des, type = "bootstrap")
+my_des_bootstrap <- as.svrepdesign(my_des, type = "bootstrap")
 # my_des_subbootstrap <- as.svrepdesign(my_des, type = "subbootstrap")
 
 svycoxme_fit_jackknife <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | id), des = my_des_jackknife)
 debugonce(svycoxme)
 svycoxme_fit <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | id), des = my_des)
 
-svycoxme_fit_jackknife$var
+svycoxme_fit_jackknife$var - svycoxme_fit$var
 
-svycoxme_fit$var
+svycoxme_fit_bootstrap <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | id), des = my_des_bootstrap)
 
+svycoxme_fit_bootstrap$var
 
 
 

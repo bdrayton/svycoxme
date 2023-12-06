@@ -13,6 +13,7 @@ need the data set used for coxme, which is unlike most residual functions (that 
   object,
   data,
   weighted = TRUE,
+  include_re = FALSE,
   type = c("score", "dfbeta", "dfbetas"),
   ...
 )

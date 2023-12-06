@@ -303,6 +303,13 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
         thetas[i, ] <- unlist(coxme::VarCorr(fit))
       }
 
+      # updating intial betas and thetas may improve computation time,
+      # particularly in later iterations.
+
+      g$init <- colMeans(betas, na.rm = TRUE)
+      g$vinit <- colMeans(thetas, na.rm = TRUE)
+
+
     }
   # }
   if (length(nas))
