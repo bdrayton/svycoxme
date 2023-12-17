@@ -11,6 +11,7 @@
   rescale = NULL,
   ...,
   control = coxme::coxme.control(),
+  starts = "mean",
   return.replicates = FALSE,
   na.action,
   multicore = getOption("survey.multicore")

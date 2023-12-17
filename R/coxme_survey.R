@@ -188,7 +188,7 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, c
 #' @export
 
 svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NULL, ...,
-                                    control = coxme::coxme.control(),
+                                    control = coxme::coxme.control(), starts = "mean",
           return.replicates = FALSE, na.action, multicore = getOption("survey.multicore")){
   subset <- substitute(subset)
   subset <- eval(subset, design$variables, parent.frame())
@@ -305,9 +305,10 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
 
       # updating intial betas and thetas may improve computation time,
       # particularly in later iterations.
-
-      g$init <- colMeans(betas, na.rm = TRUE)
-      g$vinit <- colMeans(thetas, na.rm = TRUE)
+      if(starts == "mean"){
+        g$init <- colMeans(betas, na.rm = TRUE)
+        g$vinit <- colMeans(thetas, na.rm = TRUE)
+      }
 
 
     }
