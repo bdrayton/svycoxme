@@ -12,6 +12,7 @@
   ...,
   control = coxme::coxme.control(),
   starts = "mean",
+  fix.v = FALSE,
   return.replicates = FALSE,
   na.action,
   multicore = getOption("survey.multicore")

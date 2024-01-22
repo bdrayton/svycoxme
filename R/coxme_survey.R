@@ -188,7 +188,7 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, c
 #' @export
 
 svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NULL, ...,
-                                    control = coxme::coxme.control(), starts = "mean",
+                                    control = coxme::coxme.control(), starts = "mean", fix.v = FALSE,
           return.replicates = FALSE, na.action, multicore = getOption("survey.multicore")){
   subset <- substitute(subset)
   subset <- eval(subset, design$variables, parent.frame())
@@ -255,6 +255,13 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
 
   g$init <- beta0
   g$vinit <- theta0
+
+  # will fix theta, which should decrease the perturbation is bootstrap fixed effects...
+  if(fix.v){
+    g$vfixed <- theta0
+  }
+
+
 
 ## Ignore multicore for now
   # if (multicore) {
