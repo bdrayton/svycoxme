@@ -35,7 +35,7 @@ update_streams <- function(cl, file){
 #' @export
 
 clusterSetRNGStreamFromFile <- function(cl, file) {
-  cl <- parallel::defaultCluster(cl)
+  cl <- parallel:::defaultCluster(cl)
 
   nc <- length(cl)
 
@@ -64,7 +64,7 @@ clusterSetRNGStreamFromFile <- function(cl, file) {
 
 updateRNGStreamFileFromCluster <- function(cl, file) {
 
-  cl <- parallel::defaultCluster(cl)
+  cl <- parallel:::defaultCluster(cl)
 
   nc_seq <- seq_along(cl)
 
