@@ -35,7 +35,7 @@ update_streams <- function(cl, file){
 #' @export
 
 clusterSetRNGStreamFromFile <- function(cl, file) {
-  cl <- defaultCluster(cl)
+  cl <- parallel::defaultCluster(cl)
 
   nc <- length(cl)
 
@@ -50,9 +50,9 @@ clusterSetRNGStreamFromFile <- function(cl, file) {
   for (i in nc_seq) {
     expr <- substitute(assign(".Random.seed", seed, envir = .GlobalEnv),
                        list(seed = seeds[[i]]))
-    sendCall(cl[[i]], eval, list(expr))
+    parallel:::sendCall(cl[[i]], eval, list(expr))
   }
-  checkForRemoteErrors(lapply(cl, recvResult))
+  # parallel::checkForRemoteErrors(lapply(cl, recvResult))
   invisible()
 }
 
@@ -64,7 +64,7 @@ clusterSetRNGStreamFromFile <- function(cl, file) {
 
 updateRNGStreamFileFromCluster <- function(cl, file) {
 
-  cl <- defaultCluster(cl)
+  cl <- parallel::defaultCluster(cl)
 
   nc_seq <- seq_along(cl)
 
@@ -74,7 +74,7 @@ updateRNGStreamFileFromCluster <- function(cl, file) {
     return(.Random.seed)
   })
 
-  # checkForRemoteErrors(lapply(cl, recvResult))
+  # parallel::checkForRemoteErrors(lapply(cl, recvResult))
 
   old_seeds[nc_seq] <- current_seeds
 
