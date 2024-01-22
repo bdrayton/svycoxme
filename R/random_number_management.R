@@ -53,7 +53,7 @@ clusterSetRNGStreamFromFile <- function(cl, file) {
     parallel:::sendCall(cl[[i]], eval, list(expr))
   }
   # parallel::checkForRemoteErrors(lapply(cl, recvResult))
-  invisible()
+  # invisible()
 }
 
 
