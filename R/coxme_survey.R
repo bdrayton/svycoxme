@@ -250,8 +250,8 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   #   else stop("invalid survival type")
   # }
   # else fitter <- survival::agexact.fit
-  ## Make fitter coxme, always. Would be interesting to test with different Surv() types to see what happens.
-  ## Or would it be better to use coxph.fit, with an offset term?
+  ## Make fitter coxme, always. Would be interesting to test with different Surv() types to see what happens. I think this is done now. only two surv types work.
+  ## Or would it be better to use coxph.fit, with an offset term? no
 
   g$init <- beta0
   g$vinit <- theta0
@@ -311,7 +311,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
       }
 
       # updating intial betas and thetas may improve computation time,
-      # particularly in later iterations.
+      # particularly in later iterations. nah, it doesn't.
       if(starts == "mean"){
         g$init <- colMeans(betas, na.rm = TRUE)
         g$vinit <- colMeans(thetas, na.rm = TRUE)
@@ -333,6 +333,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
     attr(betas, "rscales") <- design$rscales
     attr(betas, "mse") <- design$mse
     full$replicates <- betas
+    full$replicates_theta <- thetas
   }
   full$naive.var <- NULL
   full$wald.test <- coef(full) %*% solve(full$var, coef(full))
