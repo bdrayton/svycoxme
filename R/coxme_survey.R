@@ -77,7 +77,9 @@ svycontrast.svrepcoxme <- function(){
 #'
 #' @export
 
-svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, control = coxme::coxme.control(), include_re = FALSE, ...){
+svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE,
+                                   control = coxme::coxme.control(),
+                                   include_re = FALSE, vfixed = NULL, ...){
 
   subset<-substitute(subset)
   subset<-eval(subset, model.frame(design),parent.frame())
@@ -99,10 +101,12 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, c
     g$weights<-bquote(.survey.prob.weights*.(g$weights))
   ## g[[1]]<-quote(coxph)
   g[[1]] <- quote(coxme::coxme)
+
   # g$data<-quote(data)
   g$data <- as.name("data")
   g$subset<-quote(.survey.prob.weights>0)
   g$control = control
+  g$vfixed = vfixed
   # g$model <- TRUE
   # the equivalent to this would be to set x = TRUE and y = TRUE
   # that may be useful if I define how residuals.coxme works.
@@ -188,8 +192,9 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, c
 #' @export
 
 svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NULL, ...,
-                                    control = coxme::coxme.control(), starts = "mean", fix.v = FALSE,
-          return.replicates = FALSE, na.action, multicore = getOption("survey.multicore")){
+                                    control = coxme::coxme.control(), starts = "mean",
+          return.replicates = FALSE, vfixed = NULL,
+          na.action, multicore = getOption("survey.multicore")){
   subset <- substitute(subset)
   subset <- eval(subset, design$variables, parent.frame())
   if (!is.null(subset))
@@ -217,6 +222,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
     stop("all variables must be in design= argument")
   .survey.prob.weights <- pwts
   g$control = control
+  g$vfixed = vfixed
   full <- with(data, eval(g))
   # full <- eval(g)
 
@@ -257,9 +263,10 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   g$vinit <- theta0
 
   # will fix theta, which should decrease the perturbation is bootstrap fixed effects...
-  if(fix.v){
-    g$vfixed <- theta0
-  }
+  # edit: g$vfixed needs to be set to the true value of theta.
+  # if(fix.v){
+  #   g$vfixed <- theta0
+  # }
 
 
 

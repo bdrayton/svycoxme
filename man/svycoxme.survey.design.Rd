@@ -11,6 +11,7 @@
   rescale = TRUE,
   control = coxme::coxme.control(),
   include_re = FALSE,
+  vfixed = NULL,
   ...
 )
 }
