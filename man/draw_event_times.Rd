@@ -19,7 +19,7 @@ draw_event_times(
 \arguments{
 \item{formula}{Model equation for the data generation.}
 
-\item{data}{Covariates in the \code{formula}.}
+\item{data}{Data frame containing the covariates in the \code{formula}, an \code{id} column identifying subjects, and start and end times for time-varying covariates.}
 
 \item{coefficients}{Named vector of fixed effect coefficients.}
 
@@ -34,7 +34,15 @@ draw_event_times(
 \item{event}{option for a single event or recurrent events per subject}
 
 \item{origin}{when the time scale starts}
+
+\item{max_events}{for recurrent events, maximum events per subject. See details.}
 }
 \description{
 Create a dataset of single or recurrent events for subjects with possibly time-varying covariate data.
+}
+\details{
+Covariate data is passed to \code{draw_event_times} via the \code{data} parameter, which
+accepts a data.frame. If data is time varying, covariates will need start and end times. In either single
+or recurrent event generation, providing an end time to \code{data} will provide an upper limit on event times, that is,
+administrative censoring at the end time provided. The default, when an end time is not provided, is to set it to \code{Inf}. For recurrent events, this results in \code{max_events} being generated.
 }

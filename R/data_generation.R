@@ -54,7 +54,7 @@ check_var_labels <- function(var_labels, dist_labels){
 #'
 #' @export
 
-one_dataset <- function(formula, dists, dist_args, error, stat, coefficients = c(), random_effect_variance = list(), seed = NULL,
+one_dataset <- function(formula, dists, dist_args, error, censoring_time, coefficients = c(), random_effect_variance = list(), seed = NULL,
                         random_effect_seed = NULL){
 
   # arbitraty_seed <- runif(1, -99999, 99999)
@@ -122,8 +122,6 @@ one_dataset <- function(formula, dists, dist_args, error, stat, coefficients = c
   vars_df <- eval(parse(text = paste("data.frame(", paste(dist_names, collapse = ","), ")")), envir = var_env)
 
   error <- lazyeval::f_eval(error, data = dist_args)
-
-  vars_df$stat <- lazyeval::f_eval(stat, data = dist_args)
 
   lp_random_effects <- list()
 
@@ -202,10 +200,17 @@ one_dataset <- function(formula, dists, dist_args, error, stat, coefficients = c
                            m = nrow(risk_score_parts_matrix), n = ncol(risk_score_parts_matrix))
   } else {
     risk_score <- rep(0, length(error))
-    vars_df <- data.frame(stat_time = numeric(length(error)))
+    vars_df <- data.frame(event_time = numeric(length(error)))
   }
 
-  vars_df$stat_time <- exp(-risk_score) * error
+  vars_df$event_time <- exp(-risk_score) * error
+
+  vars_df$censoring_time <- lazyeval::f_eval(censoring_time, data = dist_args)
+
+  # add stat_time and stat, based on event and censoring times.
+  vars_df$stat = vars_df$event_time <= vars_df$censoring_time
+
+  vars_df$stat_time = with(vars_df, ifelse(stat, event_time, censoring_time))
 
   # add random effects as variables
   # for each item in lp_random_effects_list, join it to vars_df.
@@ -258,7 +263,7 @@ one_dataset <- function(formula, dists, dist_args, error, stat, coefficients = c
 #' Create a dataset of single or recurrent events for subjects with possibly time-varying covariate data.
 #'
 #' @param formula Model equation for the data generation.
-#' @param data    Covariates in the \code{formula}.
+#' @param data Data frame containing the covariates in the \code{formula}, an \code{id} column identifying subjects, and start and end times for time-varying covariates.
 #' @param coefficients Named vector of fixed effect coefficients.
 #' @param random_effect_variance Named vector of random effects. Names must match random effect formula terms.
 #' @param id The data column that identifies observations belonging to one subject.
@@ -266,13 +271,20 @@ one_dataset <- function(formula, dists, dist_args, error, stat, coefficients = c
 #' @param t change points for \code{baseline_hazard}
 #' @param event option for a single event or recurrent events per subject
 #' @param origin when the time scale starts
+#' @param max_events for recurrent events, maximum events per subject. See details.
+#'
+#' @details Covariate data is passed to \code{draw_event_times} via the \code{data} parameter, which
+#' accepts a data.frame. If data is time varying, covariates will need start and end times. In either single
+#' or recurrent event generation, providing an end time to \code{data} will provide an upper limit on event times, that is,
+#' administrative censoring at the end time provided. The default, when an end time is not provided, is to set it to \code{Inf}. For recurrent events, this results in \code{max_events} being generated. Known bugs: max_events is being applied per row, not per subject.
+#'
 #'
 #' @export
 
 
 draw_event_times <- function(formula, data, coefficients = c(), random_effect_variance = list(), id,
                              baseline_hazard = 1, t = 0, event = c("single", "recurrent"),
-                             origin = 0) {
+                             origin = 0, max_events = 1000) {
 
   Call <- match.call()
   event <- match.arg(event)
@@ -319,6 +331,7 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
   # cant use the attribute, because the data need the variables in the call before calling model.frame.
   # but I'll use the length of the Surv_call instead. This will probably break if anything but one or two times
   # are passed to Surv. Maybe I need to evaluate Surv? Nope. need the vars first.
+  # if a stop time has not been specified, set it to Inf.
 
   # Surv_evaluated <- eval(Surv_Call)
 
@@ -330,6 +343,8 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
 
     Surv_vars <- c(start_name, stop_name, status_name)
 
+    need_to_set_stop_time = FALSE
+
     # } else if(attr(model_response, "type") == "right"){
   } else if(length(Surv_Call) == 3) {
     start_name <- "origin"
@@ -339,6 +354,8 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
     if(start_name == stop_name) {stop("You need to call your event times something other than, 'origin'")}
 
     Surv_vars <- c(start_name, stop_name, status_name)
+
+    need_to_set_stop_time = TRUE
 
   }
 
@@ -355,6 +372,10 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
     data[Surv_vars[!Surv_vars_in_data]] <- double(length = nrow(data))
   }
 
+  if(need_to_set_stop_time){
+    data[[stop_name]] <- Inf
+  }
+
   model_frame <- model.frame(lme4:::getFixedFormula(formula), data)
   model_response <- model.response(model_frame)
   X <- model_frame[, -1, drop = FALSE]
@@ -367,7 +388,16 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
 
     formula <- update(formula, ytemp ~ .)
 
-    parsed_data <- lme4::lFormula(formula, data = data)
+    # control options stop lme4 complaining when there is only one obs per group.
+    # this is probably only a problem when making tiny test data sets.
+    # additionally, I might suppress the warning,
+    # 'fixed-effect model matrix is rank deficient so dropping 1 column / coefficient'
+    # it's not relevant here, because rank deficiency is a problem for estimation,
+    # not data generation. And I already have that matrix.
+    parsed_data <- lme4::lFormula(formula, data = data,
+                                  control = lme4::lmerControl(check.nobs.vs.nlev = "ignore",
+                                                              check.nobs.vs.rankZ = "ignore",
+                                                              check.nobs.vs.nRE = "ignore"))
 
     data <- dplyr::select(data, -ytemp)
 
@@ -438,7 +468,7 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
     data <- data.frame(stat_time = numeric(length(error)))
   }
 
-  d_list <- C_draw_event_times(id = as.integer(my_data[,idx]),
+  d_list <- C_draw_event_times(id = as.integer(data[,idx]),
                                start_time = as.double(data[,Surv_vars[1]]),
                                end_time = as.double(data[,Surv_vars[2]]),
                                status = as.integer(data[,Surv_vars[3]]),

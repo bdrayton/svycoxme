@@ -85,7 +85,7 @@ RcppExport SEXP _svycoxme_C_rpexp(SEXP nSEXP, SEXP rateSEXP, SEXP tSEXP, SEXP st
     if (rcpp_isError_gen) {
         SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
         UNPROTECT(1);
-        Rf_error(CHAR(rcpp_msgSEXP_gen));
+        Rf_error("%s", CHAR(rcpp_msgSEXP_gen));
     }
     UNPROTECT(1);
     return rcpp_result_gen;

@@ -2,6 +2,7 @@
 % Please edit documentation in R/coxme_survey.R, R/svycoxme.R
 \docType{package}
 \name{svycoxme}
+\alias{svycoxme-package}
 \alias{svycoxme}
 \title{functions needed to make svycoxme go.}
 \usage{
@@ -25,3 +26,7 @@ rescale should always be true in my opinion. Coxme often fails with unscaled wei
 The mypackage functions ...
 }
 
+\author{
+\strong{Maintainer}: Bradley Drayton \email{brad.drayton@auckland.ac.nz}
+
+}
