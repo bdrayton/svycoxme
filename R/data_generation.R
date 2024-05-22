@@ -297,6 +297,12 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
   }
 
   fixed_terms <- stats::terms(lme4::nobars(formula))
+  # some sort of checks for formula and coefficients. match names? length?
+  # trying for informative warning, because if they don't align, a cryptic
+  # error is thrown later: Error in base::tcrossprod(x, y) : non-conformable arguments
+  # if(length(fixed_terms) != length(coefficients())) {
+  #   stop("Coefficients and fixed terms don't match ")
+  # }
 
   # These are the fixed term variables in the formula, even if there are interactions.
   fixed_term_variables <- colnames(attr(fixed_terms, "factors"))
@@ -343,8 +349,6 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
 
     Surv_vars <- c(start_name, stop_name, status_name)
 
-    need_to_set_stop_time = FALSE
-
     # } else if(attr(model_response, "type") == "right"){
   } else if(length(Surv_Call) == 3) {
     start_name <- "origin"
@@ -354,8 +358,6 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
     if(start_name == stop_name) {stop("You need to call your event times something other than, 'origin'")}
 
     Surv_vars <- c(start_name, stop_name, status_name)
-
-    need_to_set_stop_time = TRUE
 
   }
 
@@ -369,11 +371,14 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
   # message(paste(Surv_vars[Surv_vars_in_data], collapse = ", "), paste(" will be modified"))
 
   if(any(!Surv_vars_in_data)){
-    data[Surv_vars[!Surv_vars_in_data]] <- double(length = nrow(data))
-  }
 
-  if(need_to_set_stop_time){
-    data[[stop_name]] <- Inf
+    data[Surv_vars[!Surv_vars_in_data]] <- double(length = nrow(data))
+
+    # If stop time was added to the data, set to Inf.
+    if(!Surv_vars_in_data[2]){
+      data[[stop_name]] <- Inf
+    }
+
   }
 
   model_frame <- model.frame(lme4:::getFixedFormula(formula), data)
@@ -468,10 +473,10 @@ draw_event_times <- function(formula, data, coefficients = c(), random_effect_va
     data <- data.frame(stat_time = numeric(length(error)))
   }
 
-  d_list <- C_draw_event_times(id = as.integer(data[,idx]),
-                               start_time = as.double(data[,Surv_vars[1]]),
-                               end_time = as.double(data[,Surv_vars[2]]),
-                               status = as.integer(data[,Surv_vars[3]]),
+  d_list <- C_draw_event_times(id = as.integer(data[[idx]]),
+                               start_time = as.double(data[[Surv_vars[1]]]),
+                               end_time = as.double(data[[Surv_vars[2]]]),
+                               status = as.integer(data[[Surv_vars[3]]]),
                                X = as.matrix(X),
                                risk_score = risk_score,
                                baseline_hazard = baseline_hazard,
