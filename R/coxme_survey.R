@@ -448,6 +448,7 @@ residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
                     weighted = TRUE)
           })
     } else {
+      stop("residuals for random effects are not implemented")
       rr <- with(parts,{
         C_calc_ui(time_start = time_start,
                   time_stop = time_stop,

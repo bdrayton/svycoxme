@@ -21,21 +21,21 @@ make_parts.coxme <- function(coxme.object, data){
   # need to use getFixedFormula, otherwise model.frame may complain about random effects terms.
   response <- model.response(model.frame(lme4:::getFixedFormula(form), data))
 
-  n = nrow(response)
+  n = as.integer(nrow(response))
 
   response_type = attr(response, 'type')
 
   if(response_type == "right"){
 
-    time_stop = response[,"time"]
-    time_start = rep(0, length(time_stop))
-    stat = response[,'status']
+    time_stop = response[,"time"] |> unname()
+    time_start = rep(0, length(time_stop)) |> unname()
+    stat = response[,'status'] |> unname()
 
   } else if(response_type == "counting") {
 
-    time_start = response[,"start"]
-    time_stop = response[,"stop"]
-    stat = response[,"status"]
+    time_start = response[,"start"] |> unname()
+    time_stop = response[,"stop"] |> unname()
+    stat = response[,"status"] |> unname()
 
   } else {
 
@@ -46,6 +46,7 @@ make_parts.coxme <- function(coxme.object, data){
   # reorder things
   time_order = order(time_stop, time_start)
 
+  # prevents vector of logical comparisons from inheriting names later on
   time_start = time_start[time_order]
   time_stop = time_stop[time_order]
 
@@ -66,7 +67,7 @@ make_parts.coxme <- function(coxme.object, data){
   Zt <- parsed_data$reTrms$Zt
   Z <- t(Zt)
 
-  nX <- ncol(X)
+  nX <- as.integer(ncol(X))
 
   # I think these need to be p*1 and k*1 matrices
   beta <- Matrix::Matrix(coxme::fixef(coxme.object), ncol = 1)
@@ -79,21 +80,38 @@ make_parts.coxme <- function(coxme.object, data){
   # weighted
   exp_risk_score <- weights * exp(risk_score)
 
-  start_test <- time_stop > rep(time_start, each = n)
-  stop_test  <- time_stop <= rep(time_stop, each = n)
+########
+# this part, with the n*n vectors and matrix is too memory hungry.
+# For a pop of 50,000 the each vector would be approx 10GB.
+# However, the results, S0, S1_X, and S1_Z, are n*1, n*p, and n*q.
+# So S1_Z could be large, but the others are relatively small.
+# I think I need to move this bit of into C++, and drop the
+# calculation of S1_Z all together.
+#
+#   start_test <- time_stop > rep(time_start, each = n)
+#
+#   stop_test  <- time_stop <= rep(time_stop, each = n)
+#
+#   in_risk_set_matrix <- matrix(start_test & stop_test, nrow = n, byrow = TRUE)
+#
+#   # this is S0_hat in binder, a n * 1 matrix.
+#   S0 = Matrix::crossprod(in_risk_set_matrix, exp_risk_score)
+#
+#   # this is S1_hat, n * p matrix and n * q matrix
+#   exp_risk_score_X <- exp_risk_score[, rep(1, nX)] * X
+#   exp_risk_score_Z <- Matrix::Matrix(as.numeric(exp_risk_score) * as.numeric(Z), nrow = n)
+#
+#   S1_X <- Matrix::crossprod(in_risk_set_matrix, exp_risk_score_X)
+#
+#   S1_Z <- Matrix::crossprod(in_risk_set_matrix, exp_risk_score_Z)
 
-  in_risk_set_matrix <- matrix(start_test & stop_test, nrow = n, byrow = TRUE)
+  # add in call to C method here, compare to R results.
+  S0_S1X_list =   C_calc_S0_S1X(as.matrix(time_start),
+                                as.matrix(time_stop),
+                                as.matrix(exp_risk_score),
+                                X)
 
-  # this is S0_hat in binder, a n * 1 matrix.
-  S0 = Matrix::crossprod(in_risk_set_matrix, exp_risk_score)
-
-  # this is S1_hat, n * p matrix and n * q matrix
-  exp_risk_score_X <- exp_risk_score[, rep(1, nX)] * X
-  exp_risk_score_Z <- Matrix::Matrix(as.numeric(exp_risk_score) * as.numeric(Z), nrow = n)
-
-  S1_X <- Matrix::crossprod(in_risk_set_matrix, exp_risk_score_X)
-
-  S1_Z <- Matrix::crossprod(in_risk_set_matrix, exp_risk_score_Z)
+######
 
   # I also need the penalty, divided into n parts.
   # will need D(theta), divided up appropriately for the calculation of D_i.
@@ -110,34 +128,35 @@ make_parts.coxme <- function(coxme.object, data){
 
   # cluster_weights = weights %*% Z / colSums(Z)
 
-  theta <- unlist(coxme::VarCorr(coxme.object))
-  parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
-  D <- solve(parsed_data$reTrms$Lambdat)
+  # theta <- unlist(coxme::VarCorr(coxme.object))
+  # parsed_data$reTrms$Lambdat@x <- theta[parsed_data$reTrms$Lind]
+  # D <- solve(parsed_data$reTrms$Lambdat)
 
   # the slowest way of doing it...
   # wD = diag(cluster_weights@x) %*% D
 
-  penalty <- Matrix::crossprod(b, D)
+  # penalty <- Matrix::crossprod(b, D)
 
   # # divided by n and repeated
   # ui_penalty <- (penalty/n)[rep(1, n),]
   # # split penalty among the relevant cluster.
 
-  ui_penalty = Z * (penalty/colSums(Z))[rep(1, n),]
+  # ui_penalty = Z * (penalty/colSums(Z))[rep(1, n),]
 
   r <- list( stat = Matrix::Matrix(stat, ncol = 1),
              time_start = Matrix::Matrix(time_start, ncol = 1),
              time_stop = Matrix::Matrix(time_stop, ncol = 1),
              weights = Matrix::Matrix(weights, ncol = 1),
-             S0 = S0,
-             S1_X = S1_X,
-             S1_Z = S1_Z,
+             S0 = S0_S1X_list[[1]],
+             S1_X = S0_S1X_list[[2]],
+             # S1_Z = S1_Z,
              exp_risk_score = exp(risk_score),
              weighted_exp_risk_score = exp_risk_score,
-             X = X,
-             Z = Z,
-             ui_penalty = ui_penalty,
-             di_penalty = D)
+             X = X
+             # Z = Z,
+             # ui_penalty = ui_penalty,
+             # di_penalty = D
+             )
 
   class(r) <- c("coxme_parts", class(r))
 

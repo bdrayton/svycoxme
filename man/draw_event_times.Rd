@@ -13,7 +13,8 @@ draw_event_times(
   baseline_hazard = 1,
   t = 0,
   event = c("single", "recurrent"),
-  origin = 0
+  origin = 0,
+  max_events = 1000
 )
 }
 \arguments{
@@ -44,5 +45,5 @@ Create a dataset of single or recurrent events for subjects with possibly time-v
 Covariate data is passed to \code{draw_event_times} via the \code{data} parameter, which
 accepts a data.frame. If data is time varying, covariates will need start and end times. In either single
 or recurrent event generation, providing an end time to \code{data} will provide an upper limit on event times, that is,
-administrative censoring at the end time provided. The default, when an end time is not provided, is to set it to \code{Inf}. For recurrent events, this results in \code{max_events} being generated.
+administrative censoring at the end time provided. The default, when an end time is not provided, is to set it to \code{Inf}. For recurrent events, this results in \code{max_events} being generated. Known bugs: max_events is being applied per row, not per subject.
 }

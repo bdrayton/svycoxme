@@ -13,6 +13,20 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// C_calc_S0_S1X
+Rcpp::List C_calc_S0_S1X(Rcpp::NumericMatrix& time_start, Rcpp::NumericMatrix& time_stop, Rcpp::NumericMatrix& exp_risk_score, Rcpp::NumericMatrix& X);
+RcppExport SEXP _svycoxme_C_calc_S0_S1X(SEXP time_startSEXP, SEXP time_stopSEXP, SEXP exp_risk_scoreSEXP, SEXP XSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix& >::type time_start(time_startSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix& >::type time_stop(time_stopSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix& >::type exp_risk_score(exp_risk_scoreSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix& >::type X(XSEXP);
+    rcpp_result_gen = Rcpp::wrap(C_calc_S0_S1X(time_start, time_stop, exp_risk_score, X));
+    return rcpp_result_gen;
+END_RCPP
+}
 // C_calc_ui
 Rcpp::NumericMatrix C_calc_ui(Rcpp::NumericMatrix& time_start, Rcpp::NumericMatrix& time_stop, Rcpp::NumericMatrix& stat, Rcpp::NumericMatrix& weights, Rcpp::NumericMatrix& exp_risk_score, Rcpp::NumericMatrix& S0, Rcpp::NumericMatrix& S1_X, Rcpp::NumericMatrix& X, bool weighted);
 RcppExport SEXP _svycoxme_C_calc_ui(SEXP time_startSEXP, SEXP time_stopSEXP, SEXP statSEXP, SEXP weightsSEXP, SEXP exp_risk_scoreSEXP, SEXP S0SEXP, SEXP S1_XSEXP, SEXP XSEXP, SEXP weightedSEXP) {
@@ -118,6 +132,7 @@ RcppExport SEXP _svycoxme_RcppExport_registerCCallable() {
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_svycoxme_C_calc_S0_S1X", (DL_FUNC) &_svycoxme_C_calc_S0_S1X, 4},
     {"_svycoxme_C_calc_ui", (DL_FUNC) &_svycoxme_C_calc_ui, 9},
     {"_svycoxme_C_draw_event_times", (DL_FUNC) &_svycoxme_C_draw_event_times, 11},
     {"_svycoxme_C_rpexp", (DL_FUNC) &_svycoxme_C_rpexp, 4},

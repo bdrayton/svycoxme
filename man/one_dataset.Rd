@@ -9,7 +9,7 @@ one_dataset(
   dists,
   dist_args,
   error,
-  stat,
+  censoring_time,
   coefficients = c(),
   random_effect_variance = list(),
   seed = NULL,
