@@ -26,27 +26,20 @@ make_parts.coxme <- function(coxme.object, data){
   response_type = attr(response, 'type')
 
   if(response_type == "right"){
-
     time_stop = response[,"time"] |> unname()
     time_start = rep(0, length(time_stop)) |> unname()
     stat = response[,'status'] |> unname()
-
   } else if(response_type == "counting") {
-
     time_start = response[,"start"] |> unname()
     time_stop = response[,"stop"] |> unname()
     stat = response[,"status"] |> unname()
-
   } else {
-
     stop("response type is not supported")
-
   }
 
   # reorder things
   time_order = order(time_stop, time_start)
 
-  # prevents vector of logical comparisons from inheriting names later on
   time_start = time_start[time_order]
   time_stop = time_stop[time_order]
 
@@ -143,15 +136,16 @@ make_parts.coxme <- function(coxme.object, data){
 
   # ui_penalty = Z * (penalty/colSums(Z))[rep(1, n),]
 
-  r <- list( stat = Matrix::Matrix(stat, ncol = 1),
-             time_start = Matrix::Matrix(time_start, ncol = 1),
-             time_stop = Matrix::Matrix(time_stop, ncol = 1),
-             weights = Matrix::Matrix(weights, ncol = 1),
+  # change these to regular matrices, as that's what I pass to the rcpp function
+  r <- list( stat = matrix(stat, ncol = 1),
+             time_start = matrix(time_start, ncol = 1),
+             time_stop = matrix(time_stop, ncol = 1),
+             weights = matrix(weights, ncol = 1),
              S0 = S0_S1X_list[[1]],
              S1_X = S0_S1X_list[[2]],
              # S1_Z = S1_Z,
-             exp_risk_score = exp(risk_score),
-             weighted_exp_risk_score = exp_risk_score,
+             exp_risk_score = matrix(exp(risk_score), ncol = 1),
+             weighted_exp_risk_score = matrix(exp_risk_score, ncol = 1),
              X = X
              # Z = Z,
              # ui_penalty = ui_penalty,

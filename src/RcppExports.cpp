@@ -104,6 +104,25 @@ RcppExport SEXP _svycoxme_C_rpexp(SEXP nSEXP, SEXP rateSEXP, SEXP tSEXP, SEXP st
     UNPROTECT(1);
     return rcpp_result_gen;
 }
+// agscore3
+Rcpp::NumericMatrix agscore3(Rcpp::NumericVector tstart, Rcpp::NumericVector tstop, Rcpp::NumericVector event, Rcpp::NumericMatrix covar, Rcpp::IntegerVector strata, Rcpp::NumericVector score, Rcpp::NumericVector weights, Rcpp::IntegerVector sort1, int method);
+RcppExport SEXP _svycoxme_agscore3(SEXP tstartSEXP, SEXP tstopSEXP, SEXP eventSEXP, SEXP covarSEXP, SEXP strataSEXP, SEXP scoreSEXP, SEXP weightsSEXP, SEXP sort1SEXP, SEXP methodSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type tstart(tstartSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type tstop(tstopSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type event(eventSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type covar(covarSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type strata(strataSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type score(scoreSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type sort1(sort1SEXP);
+    Rcpp::traits::input_parameter< int >::type method(methodSEXP);
+    rcpp_result_gen = Rcpp::wrap(agscore3(tstart, tstop, event, covar, strata, score, weights, sort1, method));
+    return rcpp_result_gen;
+END_RCPP
+}
 // rcpp_hello_world
 List rcpp_hello_world();
 RcppExport SEXP _svycoxme_rcpp_hello_world() {
@@ -136,6 +155,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_svycoxme_C_calc_ui", (DL_FUNC) &_svycoxme_C_calc_ui, 9},
     {"_svycoxme_C_draw_event_times", (DL_FUNC) &_svycoxme_C_draw_event_times, 11},
     {"_svycoxme_C_rpexp", (DL_FUNC) &_svycoxme_C_rpexp, 4},
+    {"_svycoxme_agscore3", (DL_FUNC) &_svycoxme_agscore3, 9},
     {"_svycoxme_rcpp_hello_world", (DL_FUNC) &_svycoxme_rcpp_hello_world, 0},
     {"_svycoxme_RcppExport_registerCCallable", (DL_FUNC) &_svycoxme_RcppExport_registerCCallable, 0},
     {NULL, NULL, 0}

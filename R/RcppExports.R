@@ -56,6 +56,24 @@ C_rpexp <- function(n, rate, t, start) {
     .Call(`_svycoxme_C_rpexp`, n, rate, t, start)
 }
 
+#' agscore3
+#'
+#' Calculate score residuals for a mixed effect cox model. Only calculates for fixed effects.
+#'
+#' @param tstart  start time
+#'	@param tstop   stop time
+#'	@param event   event
+#' @param strata  unique non-negative for each stratum
+#' @param covar2  the matrix of covariates
+#' @param score   the vector of subject scores, i.e., exp(beta*z)
+#' @param weights case weights
+#' @param method  ==1 for efron approx
+#' @param sort1 sort order of y[,1], within strata
+#' @export
+agscore3 <- function(tstart, tstop, event, covar, strata, score, weights, sort1, method) {
+    .Call(`_svycoxme_agscore3`, tstart, tstop, event, covar, strata, score, weights, sort1, method)
+}
+
 #' rcpp_hello_world
 #' 
 #' This function returns a list with character and numeric elements,  demonstrating the use of lists in C++, and testing that Rcpp is integrated properly into the package build process.  

@@ -383,17 +383,154 @@ fix_formula <- function(formula){
 }
 
 
-#' depends on survival coxph to do all the work.
-#' converts the coxme random effects into an offset,
-#' fits a coxph model with that offset, and then uses the
-#' coxph machinery. Warning that residuals may be affected in weird ways that
-#' we haven't thought through yet.
-#' need the data set used for coxme, which is unlike most residual functions (that calculate residuals as part of the fitting function)
+#' residuals.coxme
+#' calculate residuals for a coxme model
 #'
 #' @export
 
+residuals.coxme <- function (coxme.object, data, weighted = TRUE, include_re = FALSE,
+                             type = c("score", "dfbeta", "dfbetas"), ...){
 
-residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
+  type <- match.arg(type)
+  otype <- type
+
+  if(!any(type == c("score", "dfbeta", "dfbetas"))) {
+    stop(paste(type, " residuals have not been implemented."))
+  }
+
+  if (type == "dfbeta" || type == "dfbetas") {
+    otype <- type
+    type <- "score"
+  }
+
+  form <- eval(coxme.object$call[[2]])
+
+  # need to use getFixedFormula, otherwise model.frame may complain about random effects terms.
+  response <- model.response(model.frame(lme4:::getFixedFormula(form), data))
+
+  n = as.integer(nrow(response))
+
+  response_type = attr(response, 'type')
+
+  if(response_type == "right"){
+    time_stop = response[,"time"] |> unname()
+    time_start = rep(0, length(time_stop)) |> unname()
+    stat = response[,'status'] |> unname()
+  } else if(response_type == "counting") {
+    time_start = response[,"start"] |> unname()
+    time_stop = response[,"stop"] |> unname()
+    stat = response[,"status"] |> unname()
+  } else {
+    stop("response type is not supported")
+  }
+
+  # reorder things later. depends on strata too.
+  # time_order = order(time_stop, time_start)
+
+  # time_start = time_start[time_order]
+  # time_stop = time_stop[time_order]
+
+  weights <- weights(coxme.object)
+
+  if(is.null(weights)){
+    weights <- rep(1, n)
+  }
+
+  # weights <- weights[time_order]
+
+  # ds_sorted <- data[time_order, ]
+
+  # parsed_data <- lme4::lFormula(form, data = ds_sorted)
+  parsed_data <- lme4::lFormula(form, data = data)
+
+  # drop the intercept column from the X model.matrix
+  X <- parsed_data$X[ , -1, drop = FALSE]
+  Zt <- parsed_data$reTrms$Zt
+  Z <- t(Zt)
+
+  nX <- as.integer(ncol(X))
+
+  # use coxme.object$linear.predictor.
+#
+#   beta <- Matrix::Matrix(coxme::fixef(coxme.object), ncol = 1)
+#   b <- Matrix::Matrix(unlist(coxme::ranef(coxme.object)), ncol = 1)
+#
+#   risk_score <- X %*% beta + Matrix::crossprod(Zt, b)
+#
+
+
+  vv <- vcov(coxme.object)
+
+  strat <- coxme.object$strata
+  method <- coxme.object$ties
+
+  Terms <- coxme.object$terms
+  strats <- attr(Terms, "specials")$strata
+
+  # set up strata, order.
+  if (is.null(strat)) {
+    ord <- order(time_stop, -stat)
+    newstrat <- integer(n)
+    istrat <- integer(n)
+  } else {
+    istrat <- as.integer(strat)
+    ord <- order(istrat, time_stop, -stat)
+    newstrat <- c(diff(as.numeric(istrat[ord])) != 0, 1)
+  }
+  newstrat[n] <- 1
+  X <- X[ord, ]
+  time_start <- time_start[ord]
+  time_stop <- time_stop[ord]
+  stat <- stat[ord]
+
+  exp_risk_score = exp(coxme.object$linear.predictor)[ord]
+  # exp_risk_score <- exp(risk_score)[ord]
+
+  istrat <- istrat[ord]
+
+  if (is.null(strat)){
+    sort1 <- order(time_start)
+  } else {
+    sort1 <- order(istrat, time_start)
+  }
+
+  storage.mode(time_start) <- "double"
+  storage.mode(time_stop) <- "double"
+  storage.mode(stat) <- "double"
+  storage.mode(X) <- "double"
+
+  storage.mode(newstrat) <- "integer"
+  storage.mode(exp_risk_score) <- storage.mode(weights) <- "double"
+  if (type == "score") {
+    rr = svycoxme::agscore3(time_start, time_stop, stat, covar = X, strata = istrat,
+                            score = exp_risk_score, weights = weights[ord], sort1 = sort1 - 1L,
+                            method = as.integer(method == "efron"))
+
+  }
+
+  if (otype == "dfbeta") {
+    rr <- rr %*% vv
+  }
+
+  else if (otype == "dfbetas") {
+    rr <- (rr %*% vv) %*% diag(sqrt(1/diag(vv)))
+  }
+
+
+  if (!is.null(coxme.object$na.action)) {
+    rr <- naresid(coxme.object$na.action, rr)
+  }
+
+  rr
+
+}
+
+
+
+
+ # this is the old method. replaced with much faster method above.
+#' @export
+residuals2.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
                              type = c("score", "dfbeta", "dfbetas"), ...){
 
   type <- match.arg(type)
@@ -431,8 +568,9 @@ residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
 
     parts <- make_parts.coxme(object, data)
 
+    # I've modified make_parts.coxme to return class(matrix), so don't need this conversion.
     # the C++ method needs regular matrices
-    parts <- lapply(parts, as.matrix)
+    # parts <- lapply(parts, as.matrix)
 
     # rr <- resid <- calc_ui(parts, weighted = weighted)
     if(!include_re){
