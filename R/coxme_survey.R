@@ -388,7 +388,7 @@ fix_formula <- function(formula){
 #'
 #' @export
 
-residuals.coxme <- function (coxme.object, data, weighted = TRUE, include_re = FALSE,
+residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
                              type = c("score", "dfbeta", "dfbetas"), ...){
 
   type <- match.arg(type)
@@ -403,7 +403,7 @@ residuals.coxme <- function (coxme.object, data, weighted = TRUE, include_re = F
     type <- "score"
   }
 
-  form <- eval(coxme.object$call[[2]])
+  form <- eval(object$call[[2]])
 
   # need to use getFixedFormula, otherwise model.frame may complain about random effects terms.
   response <- model.response(model.frame(lme4:::getFixedFormula(form), data))
@@ -430,7 +430,7 @@ residuals.coxme <- function (coxme.object, data, weighted = TRUE, include_re = F
   # time_start = time_start[time_order]
   # time_stop = time_stop[time_order]
 
-  weights <- weights(coxme.object)
+  weights <- weights(object)
 
   if(is.null(weights)){
     weights <- rep(1, n)
@@ -450,21 +450,21 @@ residuals.coxme <- function (coxme.object, data, weighted = TRUE, include_re = F
 
   nX <- as.integer(ncol(X))
 
-  # use coxme.object$linear.predictor.
+  # use object$linear.predictor.
 #
-#   beta <- Matrix::Matrix(coxme::fixef(coxme.object), ncol = 1)
-#   b <- Matrix::Matrix(unlist(coxme::ranef(coxme.object)), ncol = 1)
+#   beta <- Matrix::Matrix(coxme::fixef(object), ncol = 1)
+#   b <- Matrix::Matrix(unlist(coxme::ranef(object)), ncol = 1)
 #
 #   risk_score <- X %*% beta + Matrix::crossprod(Zt, b)
 #
 
 
-  vv <- vcov(coxme.object)
+  vv <- vcov(object)
 
-  strat <- coxme.object$strata
-  method <- coxme.object$ties
+  strat <- object$strata
+  method <- object$ties
 
-  Terms <- coxme.object$terms
+  Terms <- object$terms
   strats <- attr(Terms, "specials")$strata
 
   # set up strata, order.
@@ -483,7 +483,7 @@ residuals.coxme <- function (coxme.object, data, weighted = TRUE, include_re = F
   time_stop <- time_stop[ord]
   stat <- stat[ord]
 
-  exp_risk_score = exp(coxme.object$linear.predictor)[ord]
+  exp_risk_score = exp(object$linear.predictor)[ord]
   # exp_risk_score <- exp(risk_score)[ord]
 
   istrat <- istrat[ord]
@@ -517,8 +517,8 @@ residuals.coxme <- function (coxme.object, data, weighted = TRUE, include_re = F
   }
 
 
-  if (!is.null(coxme.object$na.action)) {
-    rr <- naresid(coxme.object$na.action, rr)
+  if (!is.null(object$na.action)) {
+    rr <- naresid(object$na.action, rr)
   }
 
   rr
