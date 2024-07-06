@@ -2,12 +2,8 @@
 % Please edit documentation in R/coxme_survey.R
 \name{residuals.coxme}
 \alias{residuals.coxme}
-\title{depends on survival coxph to do all the work.
-converts the coxme random effects into an offset,
-fits a coxph model with that offset, and then uses the
-coxph machinery. Warning that residuals may be affected in weird ways that
-we haven't thought through yet.
-need the data set used for coxme, which is unlike most residual functions (that calculate residuals as part of the fitting function)}
+\title{residuals.coxme
+calculate residuals for a coxme model}
 \usage{
 \method{residuals}{coxme}(
   object,
@@ -18,10 +14,6 @@ need the data set used for coxme, which is unlike most residual functions (that 
 )
 }
 \description{
-depends on survival coxph to do all the work.
-converts the coxme random effects into an offset,
-fits a coxph model with that offset, and then uses the
-coxph machinery. Warning that residuals may be affected in weird ways that
-we haven't thought through yet.
-need the data set used for coxme, which is unlike most residual functions (that calculate residuals as part of the fitting function)
+residuals.coxme
+calculate residuals for a coxme model
 }

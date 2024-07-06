@@ -14,8 +14,7 @@
 
 #' Generic method
 #'
-#' rescale should always be true in my opinion. Coxme often fails with unscaled weights. When it runs, the estimates it produces are really wrong.
-#'
+#' @export
 
 svycoxme <- function(formula, design, subset=NULL, ...){
   survey:::.svycheck(design)

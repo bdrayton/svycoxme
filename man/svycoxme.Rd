@@ -13,6 +13,4 @@ svycoxme
 Need a function that takes the random effect information from coxme and converts it into an offset.
 This function will need to handle interaction terms from the random effects.
 Generic method
-
-rescale should always be true in my opinion. Coxme often fails with unscaled weights. When it runs, the estimates it produces are really wrong.
 }
