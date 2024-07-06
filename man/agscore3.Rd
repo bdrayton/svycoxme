@@ -4,7 +4,7 @@
 \alias{agscore3}
 \title{agscore3}
 \usage{
-agscore3(tstart, tstop, event, covar, strata, score, weights, sort1, method2)
+agscore3(tstart, tstop, event, covar, strata, score, weights, sort1, method)
 }
 \arguments{
 \item{tstart}{start time}
@@ -21,9 +21,9 @@ agscore3(tstart, tstop, event, covar, strata, score, weights, sort1, method2)
 
 \item{sort1}{sort order of y\link{,1}, within strata}
 
-\item{covar2}{the matrix of covariates}
-
 \item{method}{==1 for efron approx}
+
+\item{covar2}{the matrix of covariates}
 }
 \description{
 Calculate score residuals for a mixed effect cox model. Only calculates for fixed effects.
