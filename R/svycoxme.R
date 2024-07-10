@@ -216,8 +216,13 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   # if (inherits(full, "coxph.penal"))
   #   warning("svycoxph does not support penalised terms")
   nas <- attr(full$model, "na.action")
-  betas <- matrix(ncol = length(coef(full)), nrow = ncol(design$repweights))
-  thetas <- matrix(ncol = length(coxme::VarCorr(full)), nrow = ncol(design$repweights))
+  nreps <- ncol(design$repweights)
+  betas <- matrix(ncol = length(coef(full)), nrow = nreps)
+  thetas <- matrix(ncol = length(coxme::VarCorr(full)), nrow = nreps)
+  full_frails <- unlist(coxme::random.effects(coxme_fit))
+  full_frails_names <- names(full_frails)
+  frails <- matrix(ncol = length(full_frails), nrow = nreps)
+
   wts <- design$repweights
   if (!design$combined.weights) {
     pw1 <- pwts
@@ -268,12 +273,18 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   # else {
   for (i in 1:ncol(wts)) {
 
-    .survey.prob.weights <- as.vector(wts[,i]) * pw1 + EPSILON
+    # .survey.prob.weights <- as.vector(wts[,i]) * pw1 + EPSILON
+
+    weights_temp = as.vector(wts[,i]) * pw1
+
+    .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
+
+    data_temp = data[which(weights_temp != 0), ]
 
     # handle errors here, but for future, consider coxme wrapper with error
     # handling that gets called instead of coxme.
 
-    fit <- try(with(data, eval(g)))
+    fit <- try(with(data_temp, eval(g)))
     # fit <- with(data, eval(g))
 
     # assuming the method is the problem
@@ -296,15 +307,19 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
     #
     # }
     if(inherits(fit, "try-error")) {
-      betas[i, ] <- rep(NA, ncol(betas))
-      thetas[i, ] <- rep(NA, ncol(thetas))
+      ## the cells are already NA by default
+      # betas[i, ] <- rep(NA, ncol(betas))
+      # thetas[i, ] <- rep(NA, ncol(thetas))
+      # frails[i, ] <- rep(NA, ncol(frails))
     } else {
       betas[i, ] <- coef(fit)
       thetas[i, ] <- unlist(coxme::VarCorr(fit))
+      new_frails <- unlist(coxme::random.effects(fit))
+      frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
     }
 
-    # updating intial betas and thetas may improve computation time,
-    # particularly in later iterations. nah, it doesn't.
+    # updating initial betas and thetas may improve computation time,
+    # particularly in later iterations. nah, it doesn't. It's not slower either.
     if(starts == "mean"){
       g$init <- colMeans(betas, na.rm = TRUE)
       g$vinit <- colMeans(thetas, na.rm = TRUE)
@@ -327,7 +342,10 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
     attr(betas, "mse") <- design$mse
     full$replicates <- betas
     full$replicates_theta <- thetas
+    full$replicates_frail <- frails
   }
+
+
   full$naive.var <- NULL
   full$wald.test <- coef(full) %*% solve(full$var, coef(full))
   full$loglik <- c(NA, NA)
