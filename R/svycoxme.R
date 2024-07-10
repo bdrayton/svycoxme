@@ -219,7 +219,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   nreps <- ncol(design$repweights)
   betas <- matrix(ncol = length(coef(full)), nrow = nreps)
   thetas <- matrix(ncol = length(coxme::VarCorr(full)), nrow = nreps)
-  full_frails <- unlist(coxme::random.effects(coxme_fit))
+  full_frails <- unlist(coxme::random.effects(full))
   full_frails_names <- names(full_frails)
   frails <- matrix(ncol = length(full_frails), nrow = nreps)
 
