@@ -531,11 +531,23 @@ residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
   storage.mode(newstrat) <- "integer"
   storage.mode(exp_risk_score) <- storage.mode(weights) <- "double"
   if (type == "score") {
-    rr = svycoxme::agscore3(time_start, time_stop, stat, covar = X, strata = istrat,
+    resid = svycoxme::agscore3(time_start, time_stop, stat, covar = X, strata = istrat,
                             score = exp_risk_score, weights = weights[ord], sort1 = sort1 - 1L,
                             method = as.integer(method == "efron"))
 
   }
+
+  rr <- matrix(0, n, nX)
+
+  if (nX >1) {
+    rr[ord,] <- resid
+    dimnames(rr) <- list(as.character(seq_len(n)),
+                         names(object$coefficients))
+  }
+  else {
+    rr[ord] <- resid
+  }
+
 
   if (otype == "dfbeta") {
     rr <- rr %*% vv
