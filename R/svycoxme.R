@@ -39,6 +39,7 @@ svycoxme.DBIsvydesign <- function(formula, design, subset, ...){
 }
 
 #' @method svycoxme survey.design
+#' @export
 
 
 svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, ...){
@@ -161,7 +162,8 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, .
 
 
 
-#' @method svycoxme svyrep.desgin
+#' @method svycoxme svyrep.design
+#' @export
 
 svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NULL, ...,
                                     control = coxme::coxme.control(), starts = "mean",
@@ -381,10 +383,12 @@ svycontrast.svrepcoxme <- function(){
 #' @return The score residuals are each observation's contribution to the score vector. Two transformations of this are often more useful: dfbeta is the approximate change in the coefficient vector if that observation were dropped, and dfbetas is the approximate change in the coefficients, scaled by the standard error for the coefficients.
 #'
 #'
-#' @exportS3Method stats::residuals
+#' @method residuals coxme
+#' @export
 
-residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
-                             type = c("score", "dfbeta", "dfbetas"), ...){
+residuals.coxme <- function (object, data, weighted = TRUE,
+                             type = c("score", "dfbeta", "dfbetas"),
+                             include_re = FALSE, ...){
 
   type <- match.arg(type)
   otype <- type
@@ -497,9 +501,9 @@ residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
   storage.mode(newstrat) <- "integer"
   storage.mode(exp_risk_score) <- storage.mode(weights) <- "double"
   if (type == "score") {
-    resid = svycoxme::agscore3(time_start, time_stop, stat, covar = X, strata = istrat,
-                            score = exp_risk_score, weights = weights[ord], sort1 = sort1 - 1L,
-                            method = as.integer(method == "efron"))
+    resid = agscore3(time_start, time_stop, stat, covar = X, strata = istrat,
+                     score = exp_risk_score, weights = weights[ord], sort1 = sort1 - 1L,
+                     method = as.integer(method == "efron"))
 
   }
 

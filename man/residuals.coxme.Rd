@@ -8,8 +8,8 @@
   object,
   data,
   weighted = TRUE,
-  include_re = FALSE,
   type = c("score", "dfbeta", "dfbetas"),
+  include_re = FALSE,
   ...
 )
 }
@@ -20,9 +20,9 @@
 
 \item{weighted}{if TRUE and the model was fit with case weights, then the weighted residuals are returned.}
 
-\item{include_re}{logical flag indicating if residuals for random effects should be returned. This flag is currently ignored; see Details.}
-
 \item{type}{character string indicating the type of residual desired. Possible values are "score", "dfbeta"', "dfbetas".}
+
+\item{include_re}{logical flag indicating if residuals for random effects should be returned. This flag is currently ignored; see Details.}
 
 \item{...}{other unused arguments.}
 }
