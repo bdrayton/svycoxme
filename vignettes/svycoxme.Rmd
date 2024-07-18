@@ -1,0 +1,58 @@
+---
+title: "An introduction to `svycoxme`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{svycoxme}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+This document provides an introduction to `svycoxme`. This package allows users to fit mixed-effect proportional hazards models to data from complex samples. The main function, `svycoxme`, is similar spirit to `survey::svycoxph`. That is, point estimation is handled internally by `coxme::coxme`, which is passed the relevant parameters from the survey design. Extra steps are then taken for variance estimation, which is either by Taylor linearisation or replicate weighting.
+
+
+# Data generation
+Time-to-event data can be generated using the functions `one_dataset` and `draw_event_times`. The first of these functions, `one_dataset`, takes a one-sided formula, plus information about the terms in the equation to generate a dataset with a column of event times.
+
+```{r setup, message=FALSE, warning=FALSE}
+library(svycoxme)
+```
+
+For example, 
+
+put in example from chapter 2. 
+
+This is the sort of data generation from ripatti palmgren.
+
+
+```{r one_dataset_example, message=FALSE, warning=FALSE}
+
+
+
+```
+
+
+
+Example and intent with draw event times
+
+
+
+
+show svycoxme functionality, along with some sampling stuff and calibration
+
+
+
+talk about the residuals function
+
+
+
+
+
+

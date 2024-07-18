@@ -1,43 +1,26 @@
 
-#' extract term.labels attribute
-#'
-#' \link{\code{terms}} returns the formula it is given with a decomposition of attributes attached.
-#' This function is a wrapper for `attr(., "term.labels")`
-#'
-#'
-#'
 
-
-get_group_label <- function(random_term){
-
-  term_list <- coxme:::formula2(random_term)
-
-  as.character(term_list$group)
-
-}
-
-
-#' Check formula against dists names
-#'
-#' Checks that the variables in the right hand side of the formula all have matching
-#' expressions is the dists list.
-#'
-#' @param var_labels Names of the variables in the right hand side of the formula
-#' @param dist_labels Names of the expressions in dists
-#'
-#' @export
-
-
-check_var_labels <- function(var_labels, dist_labels){
-
-  test <- var_labels %in% dist_labels
-
-  not_in_dist_labels <- paste0(var_labels[!test], collapse = ", ")
-
-  if(!all(test))
-    stop(paste0("All variables in formula must be in dists.\n  These variables are in your formula but not in dists: ", not_in_dist_labels))
-
-}
+# #' Check formula against dists names
+# #'
+# #' Checks that the variables in the right hand side of the formula all have matching
+# #' expressions is the dists list.
+# #'
+# #' @param var_labels Names of the variables in the right hand side of the formula
+# #' @param dist_labels Names of the expressions in dists
+# #'
+# #' @export
+#
+#
+# check_var_labels <- function(var_labels, dist_labels){
+#
+#   test <- var_labels %in% dist_labels
+#
+#   not_in_dist_labels <- paste0(var_labels[!test], collapse = ", ")
+#
+#   if(!all(test))
+#     stop(paste0("All variables in formula must be in dists.\n  These variables are in your formula but not in dists: ", not_in_dist_labels))
+#
+# }
 
 
 

@@ -1,27 +1,28 @@
 Package: svycoxme
-Title: Explores mixed proportional hazard models for complex samples
+Title: Mixed-effects Cox models for complex samples
 Version: 0.0.0.9000
 Authors@R: 
     person(given = "Bradley",
            family = "Drayton",
            role = c("aut", "cre"),
            email = "brad.drayton@auckland.ac.nz")
-Description: Implementation of various bits of maths associated with fitting 
-    mixed proportional hazard models to data from complex samples. Includes 
-	code for simulations of various estimators. 
-Depends: R (>= 4.1.0)
+Description: Mixed-effect proportional hazards models for multistage stratified, 
+   cluster-sampled, unequally weighted survey samples. Provides variance 
+   estimation by Taylor series linearisation or replicate weights. 
+Depends: R (>= 4.1.0), survey
 License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.1
 Imports:
-    dplyr,
-    tidyr,
-    rlang,
-    tibble,
-    forcats,
-    Rcpp
+    Rcpp,
+	coxme,
+	lme4
 Roxygen: list(markdown = TRUE)
 LinkingTo: 
     Rcpp
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

@@ -2,8 +2,7 @@
 % Please edit documentation in R/svycoxme.R
 \name{residuals.coxme}
 \alias{residuals.coxme}
-\title{residuals.coxme
-calculate residuals for a coxme model}
+\title{Calculate residuals for a 'coxme' fit}
 \usage{
 \method{residuals}{coxme}(
   object,
@@ -14,7 +13,25 @@ calculate residuals for a coxme model}
   ...
 )
 }
+\arguments{
+\item{object}{an object inheriting from class \code{coxme}. This includes the output from \code{coxme} and \code{svycoxme} functions.}
+
+\item{data}{the data used to generate \code{object}.}
+
+\item{weighted}{if TRUE and the model was fit with case weights, then the weighted residuals are returned.}
+
+\item{include_re}{logical flag indicating if residuals for random effects should be returned. This flag is currently ignored; see Details.}
+
+\item{type}{character string indicating the type of residual desired. Possible values are "score", "dfbeta"', "dfbetas".}
+
+\item{...}{other unused arguments.}
+}
+\value{
+The score residuals are each observation's contribution to the score vector. Two transformations of this are often more useful: dfbeta is the approximate change in the coefficient vector if that observation were dropped, and dfbetas is the approximate change in the coefficients, scaled by the standard error for the coefficients.
+}
 \description{
-residuals.coxme
-calculate residuals for a coxme model
+Calculates score, dfbeta, or dfbetas residuals for a mixed-effects proportional hazards model. Only fixed-effect components are calculated; see Details.
+}
+\details{
+An observation's contribution to the score vector includes values for every fixed and random effect in the fitted model. In many cases, the number of random effects will be large, and most residuals will be zero. Until efficient sparse computation is implemented, it is too expensive computationally and on memory to calculate the random effect residual terms, so they are excluded. This is likely to change, and the parameter \code{include_re} is include for future expansion.
 }

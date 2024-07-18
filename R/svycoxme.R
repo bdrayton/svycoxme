@@ -1,16 +1,4 @@
-#' svycoxme: A package implementing mixed effect proportional hazard models for
-#' complex samples
-#'
-#' The svycoxme package allows users to fit \code{coxme} models with survey
-#' designs from \code{survey}.
-#'
-#' @section Mypackage functions:
-#' The mypackage functions ...
-#'
-#' @docType package
-#' @name svycoxme
-#' @useDynLib svycoxme, .registration=TRUE
-#' @importFrom Rcpp evalCpp
+
 
 
 
@@ -27,11 +15,18 @@
 #' @return An object of class `svycoxme`.
 #'
 #' @export
+#'
+#' @useDynLib svycoxme, .registration=TRUE
+#' @importFrom Rcpp evalCpp
 
 svycoxme <- function(formula, design, subset=NULL, ...){
   survey:::.svycheck(design)
   UseMethod("svycoxme", design)
 }
+
+
+#' @method svycoxme DBIsvydesign
+#' @export
 
 svycoxme.DBIsvydesign <- function(formula, design, subset, ...){
 
@@ -43,12 +38,8 @@ svycoxme.DBIsvydesign <- function(formula, design, subset, ...){
 
 }
 
-#' svycoxme.survey.design
-#'
-#' check next release for the fix to the rescale issues.
-#'
-#'
-#' @export
+#' @method svycoxme survey.design
+
 
 svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, ...){
 
@@ -169,13 +160,8 @@ svycoxme.survey.design <- function(formula, design, subset=NULL, rescale=TRUE, .
 }
 
 
-#' svycoxme
-#'
-#' function for rep weight designs
-#'
-#' @import survey
-#'
-#' @export
+
+#' @method svycoxme svyrep.desgin
 
 svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NULL, ...,
                                     control = coxme::coxme.control(), starts = "mean",
@@ -359,13 +345,7 @@ svycoxme.svyrep.design <- function (formula, design, subset = NULL, rescale = NU
   full
 }
 
-
-
-svycontrast <- function(stat, contrasts, add = FALSE, ...){
-
-  UseMethod("svycontrast")
-
-}
+#' @exportS3Method survey::svycontrast
 
 svycontrast.svycoxme <- function(){
 
@@ -375,6 +355,8 @@ svycontrast.svycoxme <- function(){
 
 }
 
+#' @exportS3Method survey::svycontrast
+
 svycontrast.svrepcoxme <- function(){
 
   warning("svycontrast has not been implemented for \"class = svrepcoxme\" ")
@@ -383,39 +365,23 @@ svycontrast.svrepcoxme <- function(){
 
 }
 
-
-#' modifies a formula.
+#' Calculate residuals for a 'coxme' fit
 #'
-#' removes random effect terms
-#' adds  + offset(offset)
-#' intented to modify the formula slot in coxme call when fitting
-#' coxph model with random effects as offsets.
+#' Calculates score, dfbeta, or dfbetas residuals for a mixed-effects proportional hazards model. Only fixed-effect components are calculated; see Details.
 #'
-#' @export
-
-fix_formula <- function(formula){
-
-  # need to retain the formula as a call, but need a formula for formula1 to work.
-  if(inherits(formula, "call")) formula <- eval(formula)
-
-  # keep the bit with fixed effects.
-  fixed_part <- coxme:::formula1(formula)$fixed
-
-  # add offset(offset)
-  new_form <- update.formula(fixed_part, ~ . + offset(offset))
-
-  # convert it back to a call
-  attributes(new_form) <- NULL
-
-  return(new_form)
-
-}
-
-
-#' residuals.coxme
-#' calculate residuals for a coxme model
+#' An observation's contribution to the score vector includes values for every fixed and random effect in the fitted model. In many cases, the number of random effects will be large, and most residuals will be zero. Until efficient sparse computation is implemented, it is too expensive computationally and on memory to calculate the random effect residual terms, so they are excluded. This is likely to change, and the parameter \code{include_re} is include for future expansion.
 #'
-#' @export
+#' @param object an object inheriting from class \code{coxme}. This includes the output from \code{coxme} and \code{svycoxme} functions.
+#' @param data the data used to generate \code{object}.
+#' @param type character string indicating the type of residual desired. Possible values are "score", "dfbeta"', "dfbetas".
+#' @param weighted	if TRUE and the model was fit with case weights, then the weighted residuals are returned.
+#' @param include_re logical flag indicating if residuals for random effects should be returned. This flag is currently ignored; see Details.
+#' @param ...	other unused arguments.
+#'
+#' @return The score residuals are each observation's contribution to the score vector. Two transformations of this are often more useful: dfbeta is the approximate change in the coefficient vector if that observation were dropped, and dfbetas is the approximate change in the coefficients, scaled by the standard error for the coefficients.
+#'
+#'
+#' @exportS3Method stats::residuals
 
 residuals.coxme <- function (object, data, weighted = TRUE, include_re = FALSE,
                              type = c("score", "dfbeta", "dfbetas"), ...){
@@ -716,17 +682,6 @@ formula.svycoxme <- function(x, ...){
 predict.svycoxme <- function(x, ...){
 
   warning("predict has not been implemented for \"class = svycoxme\"" )
-
-  # this could be the method to use for data generation.
-  # or something similar, that takes:
-  # a data set
-  # a model formula
-  # fixed and random effects
-  # further specification of the event scenario (recurrent, clustered, etc)
-  # returns:
-  # a matrix of responses, approriately identified, structure defined by the
-  # Surv() call, plus any other specs required.
-
 
 
 }

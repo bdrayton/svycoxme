@@ -3,16 +3,15 @@ using namespace Rcpp;
 
 // [[Rcpp::interfaces(r, cpp)]]
 
-//' C_rpexp
-//'
-//' Draw a single random number from a piecewise exponential distribution.
-//' See msm::rpexp()
-//'
-//' @param rate vector of event rates
-//' @param t vector same length as rate, giving the times the rate changes. The values of t should be ascending order.
-//' @param start numeric scalar; delayed entry time. The random deviates will be left truncated.
-//'
-//' @export
+// C_rpexp
+//
+// Draw a single random number from a piecewise exponential distribution.
+// See msm::rpexp()
+//
+// rate  vector of event rates
+// t     vector same length as rate, giving the times the rate changes. The values of t should be ascending order.
+// start numeric scalar; delayed entry time. The random deviates will be left truncated.
+//
 // [[Rcpp::export]]
 Rcpp::NumericVector C_rpexp(int n,
                Rcpp::NumericVector rate,

@@ -1,20 +1,20 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-//' agscore3
-//'
-//' Calculate score residuals for a mixed effect cox model. Only calculates for fixed effects.
-//'
-//' @param tstart  start time
-//'	@param tstop   stop time
-//'	@param event   event
-//' @param strata  unique non-negative for each stratum
-//' @param covar2  the matrix of covariates
-//' @param score   the vector of subject scores, i.e., exp(beta*z)
-//' @param weights case weights
-//' @param method  ==1 for efron approx
-//' @param sort1 sort order of y[,1], within strata
-//' @export
+// agscore3
+//
+// Calculate score residuals for a mixed effect cox model. Only calculates for fixed effects.
+//
+// tstart  start time
+// tstop   stop time
+// event   event
+// strata  unique non-negative for each stratum
+// covar2  the matrix of covariates
+// score   the vector of subject scores, i.e., exp(beta*z)
+// weights case weights
+// method  ==1 for efron approx
+// sort1 sort order of y[,1], within strata
+
 // [[Rcpp::export]]
 
 Rcpp::NumericMatrix agscore3(Rcpp::NumericVector tstart,

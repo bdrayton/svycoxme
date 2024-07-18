@@ -2,13 +2,13 @@
 #include <svycoxme_RcppExports.h>
 using namespace Rcpp;
 
-//' C_draw_event_times
-//'
-//' Draw event times times using possibly time-varying covariate data
-//'
-//' @param subject_id unique identifier for subject
-//'
-//' @export
+// C_draw_event_times
+//
+// Draw event times times using possibly time-varying covariate data
+//
+// subject_id unique identifier for subject
+//
+// 
 // [[Rcpp::export]]
 
 Rcpp::List          C_draw_event_times(Rcpp::IntegerVector id,
