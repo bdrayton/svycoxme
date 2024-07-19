@@ -15,17 +15,48 @@ knitr::opts_chunk$set(
 ```
 
 # Introduction
-This document provides an introduction to `svycoxme`. This package allows users to fit mixed-effect proportional hazards models to data from complex samples. The main function, `svycoxme`, is similar spirit to `survey::svycoxph`. That is, point estimation is handled internally by `coxme::coxme`, which is passed the relevant parameters from the survey design. Extra steps are then taken for variance estimation, which is either by Taylor linearisation or replicate weighting.
-
+This document provides an introduction to `svycoxme`. This package allows users to fit mixed-effect proportional hazards models to data from complex samples. The main function, `svycoxme`, is similar spirit to `survey::svycoxph`. Point estimation is handled internally by `coxme::coxme`, which is passed the relevant parameters from the survey design. Extra steps are then taken for variance estimation, which is either by Taylor linearisation or replicate weighting.
 
 # Data generation
-Time-to-event data can be generated using the functions `one_dataset` and `draw_event_times`. The first of these functions, `one_dataset`, takes a one-sided formula, plus information about the terms in the equation to generate a dataset with a column of event times.
+Time-to-event data can be generated using the functions `one_dataset` and `draw_event_times`. The first of these functions, `one_dataset`, takes a one-sided formula, plus information about the terms in the equation to generate a dataset with a column of event times. This is data generation in \cite{ripatti_}
 
 ```{r setup, message=FALSE, warning=FALSE}
 library(svycoxme)
 ```
 
-For example, 
+For example, if event times were generated 
+
+event times could be specified using the 
+
+
+taking one of the parameter combinations from the simulations of simple random cluster sampling without replacement, 
+
+
+
+Each observation had a vector of three fixed-effect covariates, $\bmX_{ij}=\{X_{1ij}, X_{2i}, X_{3i}\}$ where,
+\begin{tabular}{ll}
+	$X_{1ij} \sim N(0, 1),$ & \text{varied across clusters and individuals;}\\
+	$X_{2i} \sim N(0, 1),$  & \text{constant within clusters, varied across clusters; and}\\
+	$X_{3i} \sim Bern(0.5),$& \text{constant within clusters, varied across clusters.}
+\end{tabular}%
+
+The associated fixed effects were set to $\bmbeta = (\beta_1 = 1,\ \beta_2 = -0.7,\ \beta_3 = 0.5)$ and the time-to-event for observation $j$ in cluster $i$ was generate as, 
+\begin{align}T_{ij} = \exp(-\bmX_{ij}\bmbeta - \bmb_i)\epsilon_{ij},\end{align}%
+where, 
+
+%
+\begin{align}\epsilon_{ij} \sim \Exp(\lambda = 0.1).\end{align} %
+Censoring time was randomly drawn from,
+\begin{align}
+    C_{ij} \sim \text{Uniform}(0, 0.8),
+\end{align}
+which gave approximately 20\% censoring. The observed time was then, 
+\begin{align}
+    t_{ij} = \min(T_{ij}, C_{ij}).
+\end{align}
+
+
+
 
 put in example from chapter 2. 
 
