@@ -7,8 +7,8 @@
 \method{residuals}{coxme}(
   object,
   data,
-  weighted = TRUE,
   type = c("score", "dfbeta", "dfbetas"),
+  weighted = (type \%in\% c("dfbeta", "dfbetas")),
   include_re = FALSE,
   ...
 )
@@ -18,9 +18,9 @@
 
 \item{data}{the data used to generate \code{object}.}
 
-\item{weighted}{if TRUE and the model was fit with case weights, then the weighted residuals are returned.}
-
 \item{type}{character string indicating the type of residual desired. Possible values are "score", "dfbeta"', "dfbetas".}
+
+\item{weighted}{if TRUE and the model was fit with case weights, then the weighted residuals are returned.}
 
 \item{include_re}{logical flag indicating if residuals for random effects should be returned. This flag is currently ignored; see Details.}
 
