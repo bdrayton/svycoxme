@@ -163,7 +163,7 @@ svycoxme.survey.design <-
 
     g$wald.test <- coef(g) %*% solve(g$var, coef(g))
     g$ll <- g$loglik
-    g$loglik <- NULL
+    g$loglik <- rep(NA_real_, 3)
     g$rscore <- NULL
     g$score <- NA
     g$degf.resid <- degf(design) - length(coef(g)[!is.na(coef(g))]) + 1
@@ -370,8 +370,8 @@ svycoxme.svyrep.design <-
 
 #' @exportS3Method survey::svycontrast
 
-svycontrast.svycoxme <- function() {
-  warning("svycontrast has not been implemented for \"class = svycoxme\" ")
+svycontrast.svycoxme <- function(stat, contrasts, add = FALSE, ...) {
+  stop("svycontrast has not been implemented for \"class = svycoxme\" ")
 
   # return something?
 
@@ -379,12 +379,22 @@ svycontrast.svycoxme <- function() {
 
 #' @exportS3Method survey::svycontrast
 
-svycontrast.svrepcoxme <- function() {
-  warning("svycontrast has not been implemented for \"class = svrepcoxme\" ")
+svycontrast.svrepcoxme <- function(stat, contrasts, add = FALSE, ...) {
+  stop("svycontrast has not been implemented for \"class = svrepcoxme\" ")
 
   # return something?
 
 }
+
+
+#' @exportS3Method stats::AIC
+AIC.svycoxme <- function(object, ...) {
+  stop("No AIC for survey models")
+
+  # return something?
+
+}
+
 
 #' Calculate residuals for a 'coxme' fit
 #'
