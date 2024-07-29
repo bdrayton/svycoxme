@@ -353,10 +353,9 @@ svycoxme.svyrep.design <-
       full$replicates_frail <- frails
     }
 
-
     full$naive.var <- NULL
     full$wald.test <- coef(full) %*% solve(full$var, coef(full))
-    full$loglik <- c(NA, NA)
+    full$loglik <- rep(NA_real_, 3)
     full$rscore <- NULL
     full$score <- NA
     full$degf.residual <-
