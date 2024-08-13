@@ -41,7 +41,7 @@ sortAndIndex <- function(data, sort_vars, index = "index") {
 #' @rdname lp
 #' @export
 
-lp <- function(params, formula, parsed_data, other_args){
+lp <- function(params, formula, parsed_data, other_args, weights, cluster_weights){
   UseMethod("lp", parsed_data)
 }
 
@@ -49,7 +49,7 @@ lp <- function(params, formula, parsed_data, other_args){
 #' @export
 #' @rdname lp
 
-lp.ppl <- function(params, formula, parsed_data, other_args) {
+lp.ppl <- function(params, formula, parsed_data, other_args, weights, cluster_weights) {
 
   # These steps are moved to improve performance of optim.
   # # This sort var could be pulled out of the formula.
@@ -65,7 +65,7 @@ lp.ppl <- function(params, formula, parsed_data, other_args) {
   # drop the intercept column from the X model.matrix
   risk_score <- parsed_data$X[, -1, drop = FALSE] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
 
-  exp_risk_score <- exp(risk_score)
+  exp_risk_score <- weights * exp(risk_score)
 
   # calculate risk sets
   # I do it this way to preserve the class and other slots. rev(risk_score) coerces to a numeric vector.
@@ -87,9 +87,9 @@ lp.ppl <- function(params, formula, parsed_data, other_args) {
 
   parsed_data$reTrms$Lambdat@x <- other_args$theta[parsed_data$reTrms$Lind]
 
-  penalty <- 0.5 * t(b) %*% Matrix::solve(parsed_data$reTrms$Lambdat) %*% b
+  penalty <- 0.5  * t(cluster_weights * b) %*% Matrix::solve(parsed_data$reTrms$Lambdat) %*% b
 
-  penalised_likelihood <- sum(other_args$stat * (risk_score - log(at_risk))) - penalty
+  penalised_likelihood <- sum(weights * other_args$stat * (risk_score - log(at_risk))) - penalty
 
   to_return <- penalised_likelihood@x
 
@@ -187,7 +187,7 @@ lp.pplextra <- function(params, formula, parsed_data, other_args) {
 #' @rdname lp_gr
 #' @export
 
-lp_gr_beta <- function(params, formula, parsed_data, other_args){
+lp_gr_beta <- function(params, formula, parsed_data, other_args, weights, cluster_weights){
   UseMethod("lp_gr_beta", parsed_data)
 }
 
@@ -195,7 +195,7 @@ lp_gr_beta <- function(params, formula, parsed_data, other_args){
 #' @rdname lp_gr
 #' @export
 
-lp_gr_beta.ppl <- function(params, formula, parsed_data, other_args) {
+lp_gr_beta.ppl <- function(params, formula, parsed_data, other_args, weights, cluster_weights) {
 
   # ds_sorted <- sortAndIndex(data, sort_vars = stat_time)
   #
@@ -208,7 +208,8 @@ lp_gr_beta.ppl <- function(params, formula, parsed_data, other_args) {
 
   risk_score <- parsed_data$X[, -1, drop = FALSE] %*% beta + Matrix::crossprod(parsed_data$reTrms$Zt, b)
 
-  exp_risk_score <- exp(risk_score)
+  # weight here and that means the risk sets are weighted too.
+  exp_risk_score <- weights * exp(risk_score)
 
   rev_exp_risk_score <- exp_risk_score
   rev_exp_risk_score@x <- rev(exp_risk_score@x)
@@ -228,8 +229,9 @@ lp_gr_beta.ppl <- function(params, formula, parsed_data, other_args) {
   at_risk_X <- fast_risk_sets(exp_risk_score_X)
 
   # stat <- Matrix(ds_sorted$stat, ncol = 1)
-
-  likelihood_gradients <- colSums(other_args$stat * (parsed_data$X[, -1, drop = FALSE] - at_risk_X/at_risk))
+  new_stat = other_args$stat[, rep(1, ncol(at_risk_X))]
+  # might need to put weights in a matrix with correct dimensions .... let's see.
+  likelihood_gradients <- colSums(weights * new_stat * (parsed_data$X[, -1, drop = FALSE] - at_risk_X/at_risk))
 
   likelihood_gradients
 
@@ -357,7 +359,7 @@ lp_gr.pplextra <- function(params, formula, parsed_data, other_args) {
 #' @rdname lp_gr
 #' @export
 
-lp_gr_b <- function(params, formula, parsed_data, other_args){
+lp_gr_b <- function(params, formula, parsed_data, other_args, weights, cluster_weights){
   UseMethod("lp_gr_b", parsed_data)
 }
 
@@ -365,7 +367,7 @@ lp_gr_b <- function(params, formula, parsed_data, other_args){
 #' @rdname lp_gr
 #' @export
 
-lp_gr_b.ppl <- function(params, formula, parsed_data, other_args) {
+lp_gr_b.ppl <- function(params, formula, parsed_data, other_args, weights, cluster_weights) {
   #
   # ds_sorted <- sortAndIndex(data, sort_vars = stat_time)
   #
@@ -378,7 +380,7 @@ lp_gr_b.ppl <- function(params, formula, parsed_data, other_args) {
 
   risk_score <- parsed_data$X[, -1, drop = FALSE] %*% beta + crossprod(parsed_data$reTrms$Zt, b)
 
-  exp_risk_score <- exp(risk_score)
+  exp_risk_score <- weights * exp(risk_score)
 
   rev_exp_risk_score <- exp_risk_score
   rev_exp_risk_score@x <- rev(exp_risk_score@x)
@@ -399,11 +401,13 @@ lp_gr_b.ppl <- function(params, formula, parsed_data, other_args) {
 
   # stat <- Matrix(ds_sorted$stat, ncol = 1)
 
-  likelihood_gradients_unpenalised <- Matrix::colSums(other_args$stat * (t(parsed_data$reTrms$Zt) - at_risk_Z/at_risk))
+  new_stat = other_args$stat[, rep(1, ncol(at_risk_Z))]
+
+  likelihood_gradients_unpenalised <- Matrix::colSums(weights * new_stat * (t(parsed_data$reTrms$Zt) - at_risk_Z/at_risk))
 
   parsed_data$reTrms$Lambdat@x <- other_args$theta[parsed_data$reTrms$Lind]
 
-  penalty <- t(b) %*% solve(parsed_data$reTrms$Lambdat)
+  penalty <- t(cluster_weights * b) %*% solve(parsed_data$reTrms$Lambdat)
 
   # this accessing @x is probably poor practice?
   likelihood_gradients_unpenalised - penalty@x
@@ -417,7 +421,7 @@ lp_gr_b.ppl <- function(params, formula, parsed_data, other_args) {
 #' @rdname lp_gr
 #' @export
 
-lp_gr <- function(params, formula, parsed_data, other_args){
+lp_gr <- function(params, formula, parsed_data, other_args, weights, cluster_weights){
   UseMethod("lp_gr", parsed_data)
 }
 
@@ -426,10 +430,12 @@ lp_gr <- function(params, formula, parsed_data, other_args){
 #' @rdname lp_gr
 #' @export
 
-lp_gr.ppl <- function(params, formula, parsed_data, other_args) {
+lp_gr.ppl <- function(params, formula, parsed_data, other_args, weights, cluster_weights) {
 
-  c(lp_gr_beta.ppl(params = params, formula = formula, parsed_data = parsed_data, other_args = other_args),
-    lp_gr_b.ppl(   params = params, formula = formula, parsed_data = parsed_data, other_args = other_args))
+  c(lp_gr_beta.ppl(params = params, formula = formula, parsed_data = parsed_data,
+                   other_args = other_args, weights = weights, cluster_weights = cluster_weights),
+    lp_gr_b.ppl(   params = params, formula = formula, parsed_data = parsed_data,
+                   other_args = other_args, weights = weights, cluster_weights = cluster_weights))
 
 }
 
@@ -497,7 +503,7 @@ fast_risk_sets <- function(a_matrix){
 #' @export
 #'
 
-theta_ipl <- function(theta, formula, parsed_data, other_args){
+theta_ipl <- function(theta, formula, parsed_data, other_args, weights, cluster_weights){
 
   # set up D
   D <- parsed_data$reTrms$Lambdat
@@ -510,6 +516,8 @@ theta_ipl <- function(theta, formula, parsed_data, other_args){
                 formula = formula,
                 parsed_data = parsed_data,
                 other_args = c(list(theta = theta), other_args),
+                weights = weights,
+                cluster_weights = cluster_weights,
                 method = "BFGS",
                 control = list(fnscale = -1, reltol = other_args$reltol),
                 hessian = TRUE)
@@ -521,6 +529,8 @@ theta_ipl <- function(theta, formula, parsed_data, other_args){
   } else {
     Kbb <- ests$hessian
   }
+
+  # need to used the cluster weights here:
 
   detD <- determinant(D)$modulus
   detKbb <- determinant(Kbb)$modulus
@@ -681,7 +691,7 @@ theta_ipl_gr2 <- function(theta, formula, parsed_data, other_args, ests){
 #' @export
 #'
 
-theta_ipl_fn_gr <- function(formula, parsed_data, other_args) {
+theta_ipl_fn_gr <- function(formula, parsed_data, other_args, weights, cluster_weights) {
 
   quant1 <- NULL
   prev_param <- NULL
@@ -689,7 +699,8 @@ theta_ipl_fn_gr <- function(formula, parsed_data, other_args) {
   update_theta_ipl <- function(param_vec) {
     if (!identical(param_vec, prev_param)) {
       theta_ipl_est <<- theta_ipl(theta = param_vec, formula = formula,
-                                  parsed_data = parsed_data, other_args = other_args)
+                                  parsed_data = parsed_data, other_args = other_args,
+                                  weights = weights, cluster_weights = cluster_weights)
       prev_param <<- param_vec
     }
   }
@@ -719,6 +730,7 @@ theta_ipl_fn_gr <- function(formula, parsed_data, other_args) {
     D <- attr(theta_ipl_est, "D")
     D_inv <- Matrix::solve(D)
 
+    # need to used the cluster weights here?
     calc_grad <- function(dD){
 
       grad <- -0.5 * ( tr( D_inv %*% dD )
@@ -975,7 +987,7 @@ theta_ipl_gr_num <- function(theta, formula, parsed_data, other_args){
 #' @export
 
 est_parameters <- function(formula, data, start_params = NULL, theta_start = NULL,
-                           control = control.list()) {
+                           control = control.list(), weights, cluster_weights) {
 
   # Allow start parameters to be passed in, so I can use ppl, and then refin with pplextra.
 
@@ -999,7 +1011,9 @@ est_parameters <- function(formula, data, start_params = NULL, theta_start = NUL
 
     fixed_formula <- lme4:::getFixedFormula(formula)
 
-    fit0 <- survival::coxph(fixed_formula, data = data)
+    data$.weights = weights
+
+    fit0 <- survival::coxph(fixed_formula, data = data, weights = .weights)
 
     # start_params <- c(coef(fit0), rep(0, length(parsed_data$reTrms$Lind)))
     # the full likelihood in ripatti often evaluates to NaN when the random effects are all 0,
@@ -1035,7 +1049,9 @@ if(control$grad) {
                                        start_params = start_params,
                                        stat = stat,
                                        re_only = control$re_only,
-                                       reltol = control$reltol))))
+                                       reltol = control$reltol),
+                     weights = weights,
+                     cluster_weights = cluster_weights)))
 
   ## this one with the gradient doesn't really work very well. might work by tinkering with reltol and abstol
   # theta_est <- optim(par = theta_start,
@@ -1064,6 +1080,8 @@ if(control$grad) {
                                        stat = stat,
                                        re_only = control$re_only,
                                        reltol = control$reltol),
+                     weights = weights,
+                     cluster_weights = cluster_weights,
                      method = "L-BFGS-B",
                      control = list(fnscale = -1, factr = control$factr, ndeps = control$ndeps),
                      lower = 0.00001, upper = Inf,
@@ -1077,6 +1095,8 @@ if(control$grad) {
                       parsed_data = parsed_data,
                       other_args = list(theta = theta_est$par,
                                         stat = stat),
+                      weights = weights,
+                      cluster_weights = cluster_weights,
                       method = "BFGS",
                       control = list(fnscale = -1, reltol = control$reltol),
                       hessian = TRUE)
