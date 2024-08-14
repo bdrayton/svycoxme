@@ -9,12 +9,11 @@
 #' @export
 #'
 #' @importFrom rlang :=
-#' @importFrom magrittr %>%
 #' @import Matrix
 
 sortAndIndex <- function(data, sort_vars, index = "index") {
-  data %>%
-    dplyr::arrange(dplyr::across({{ sort_vars }})) %>%
+  data |>
+    dplyr::arrange(dplyr::across({{ sort_vars }})) |>
     dplyr::mutate({{ index }} := dplyr::row_number(), .before = everything())
 }
 
@@ -986,227 +985,259 @@ theta_ipl_gr_num <- function(theta, formula, parsed_data, other_args){
 #'
 #' @export
 
-est_parameters <- function(formula, data, start_params = NULL, theta_start = NULL,
-                           control = control.list(), weights, cluster_weights) {
+est_parameters <-
+  function(formula,
+           data,
+           start_params = NULL,
+           theta_start = NULL,
+           control = control.list(),
+           weights,
+           cluster_weights) {
+    # Allow start parameters to be passed in, so I can use ppl, and then refin with pplextra.
 
-  # Allow start parameters to be passed in, so I can use ppl, and then refin with pplextra.
+    # this stuff is needed for each call to lp and lp_grd, but doesn't change, so
+    # I calculate it once here, and pass it in.
 
-  # this stuff is needed for each call to lp and lp_grd, but doesn't change, so
-  # I calculate it once here, and pass it in.
+    ds_sorted <- sortAndIndex(data, sort_vars = stat_time)
 
-  ds_sorted <- sortAndIndex(data, sort_vars = stat_time)
+    parsed_data <- lme4::lFormula(formula, data = ds_sorted)
 
-  parsed_data <- lme4::lFormula(formula, data = ds_sorted)
+    parsed_data <- switch(
+      control$method,
+      "ppl" = make_ppl(parsed_data),
+      "pplextra" = make_pplextra(parsed_data)
+    )
 
-  parsed_data <- switch(control$method,
-         "ppl" = make_ppl(parsed_data),
-         "pplextra" = make_pplextra(parsed_data))
+    if (is.null(theta_start))
+      theta_start <- get_start_theta(length(parsed_data$reTrms$flist))
 
-  if (is.null(theta_start))
-    theta_start <- get_start_theta(length(parsed_data$reTrms$flist))
+    n_fixed <-
+      length(attr(terms(coxme:::formula1(formula)$fixed), "order"))
 
-  n_fixed <- length(attr(terms(coxme:::formula1(formula)$fixed), "order"))
+    if (is.null(start_params)) {
+      fixed_formula <- lme4:::getFixedFormula(formula)
 
-  if (is.null(start_params)) {
+      data$.weights = weights
 
-    fixed_formula <- lme4:::getFixedFormula(formula)
+      fit0 <-
+        survival::coxph(fixed_formula, data = data, weights = .weights)
 
-    data$.weights = weights
+      # start_params <- c(coef(fit0), rep(0, length(parsed_data$reTrms$Lind)))
+      # the full likelihood in ripatti often evaluates to NaN when the random effects are all 0,
+      # so I'll set them using rnorm given theta_start.
 
-    fit0 <- survival::coxph(fixed_formula, data = data, weights = .weights)
+      start_params <- c(coef(fit0),
+                        rnorm(
+                          n = length(parsed_data$reTrms$Lind),
+                          mean = 0,
+                          sd = sqrt(theta_start[parsed_data$reTrms$Lind])
+                        ))
 
-    # start_params <- c(coef(fit0), rep(0, length(parsed_data$reTrms$Lind)))
-    # the full likelihood in ripatti often evaluates to NaN when the random effects are all 0,
-    # so I'll set them using rnorm given theta_start.
+      start_params_names <-
+        c(names(coef(fit0)), rownames(parsed_data$reTrms$Zt))
 
-    start_params <- c(coef(fit0),
-                      rnorm(n = length(parsed_data$reTrms$Lind),
-                            mean = 0,
-                            sd = sqrt(theta_start[parsed_data$reTrms$Lind])))
+      names(start_params) <- start_params_names
 
-    start_params_names <- c(names(coef(fit0)), rownames(parsed_data$reTrms$Zt))
+    }
 
-    names(start_params) <- start_params_names
+    # assumes that the response is of the form Surv(time, stat). Behaviour for other Surv formats is undefined.
+    stat <- Matrix(unclass(parsed_data$fr[, 1])[, "status"], ncol = 1)
+
+    if (control$grad) {
+      # use memoised gr and fn
+
+      theta_est <- do.call(optim, c(
+        list(
+          par = theta_start,
+          method = "L-BFGS-B",
+          control = list(
+            fnscale = -1,
+            factr = control$factr,
+            ndeps = control$ndeps
+          ),
+          lower = 0.00001,
+          upper = Inf,
+          hessian = TRUE
+        ),
+        theta_ipl_fn_gr(
+          formula = formula,
+          parsed_data = parsed_data,
+          other_args = list(
+            n_fixed = n_fixed,
+            start_params = start_params,
+            stat = stat,
+            re_only = control$re_only,
+            reltol = control$reltol
+          ),
+          weights = weights,
+          cluster_weights = cluster_weights
+        )
+      ))
+
+      ## this one with the gradient doesn't really work very well. might work by tinkering with reltol and abstol
+      # theta_est <- optim(par = theta_start,
+      #                    fn = theta_ipl,
+      #                    gr = theta_ipl_gr_num,
+      #                    formula = formula,
+      #                    parsed_data = parsed_data,
+      #                    other_args = list(n_fixed = n_fixed,
+      #                                      start_params = start_params,
+      #                                      stat = stat,
+      #                                      re_only = control$re_only,
+      #                                      reltol = control$reltol),
+      #                    method = "L-BFGS-B",
+      #                    control = list(fnscale = -1, factr = control$factr),
+      #                    lower = 0.00001, upper = Inf,
+      #                    hessian = TRUE)
+    } else {
+      theta_est <- optim(
+        par = theta_start,
+        fn = theta_ipl,
+        gr = NULL,
+        formula = formula,
+        parsed_data = parsed_data,
+        other_args = list(
+          n_fixed = n_fixed,
+          start_params = start_params,
+          stat = stat,
+          re_only = control$re_only,
+          reltol = control$reltol
+        ),
+        weights = weights,
+        cluster_weights = cluster_weights,
+        method = "L-BFGS-B",
+        control = list(
+          fnscale = -1,
+          factr = control$factr,
+          ndeps = control$ndeps
+        ),
+        lower = 0.00001,
+        upper = Inf,
+        hessian = TRUE
+      )
+    }
+
+    beta_b_est <- optim(
+      par = start_params,
+      fn = lp,
+      gr = lp_gr,
+      formula = formula,
+      parsed_data = parsed_data,
+      other_args = list(theta = theta_est$par,
+                        stat = stat),
+      weights = weights,
+      cluster_weights = cluster_weights,
+      method = "BFGS",
+      control = list(fnscale = -1, reltol = control$reltol),
+      hessian = TRUE
+    )
+
+    # # for writing estimation history.
+    # estimation_history <- list(theta_est = list(),
+    #                            beta_b_est = list())
+    #
+    # estimation_history$theta_est[[1]] <- theta_est
+    # estimation_history$beta_b_est[[1]] <- beta_b_est
+    #
+    # # iterate between these steps until convergence.
+    #
+    # for (i in seq_len(control$max_iter)){
+    #
+    #   current_ests <- c(beta_b_est$par, theta_est$par)
+    #
+    #   theta_est <- optim(par = theta_est$par,
+    #                      fn = theta_ipl,
+    #                      gr = NULL,
+    #                      formula = formula,
+    #                      parsed_data = parsed_data,
+    #                      other_args = list(n_fixed = n_fixed,
+    #                                        start_params = beta_b_est$par,
+    #                                        stat = stat,
+    #                                        re_only = control$re_only),
+    #                      method = "L-BFGS-B",
+    #                      control = list(fnscale = -1),
+    #                      lower = 0.00001, upper = Inf)
+    #
+    #   beta_b_est <- optim(par = beta_b_est$par,
+    #                       fn = lp,
+    #                       gr = lp_gr,
+    #                       formula = formula,
+    #                       parsed_data = parsed_data,
+    #                       other_args = list(theta = theta_est$par,
+    #                                         stat = stat),
+    #                       method = "BFGS",
+    #                       control = list(fnscale = -1))
+    #
+    #   estimation_history$theta_est[[i + 1]] <- theta_est
+    #   estimation_history$beta_b_est[[i + 1]] <- beta_b_est
+    #
+    #   # test convergence
+    #   converged <- max(abs(current_ests - c(beta_b_est$par, theta_est$par))) <= control$convergence_threshold
+    #
+    #   if(converged) break
+    #
+    # }
+
+    #
+    #
+    #   beta_b_est$hessian <- optimHess(beta_b_est$par, fn = lp, gr = lp_gr, parsed_data = parsed_data,
+    #                                  other_args = list(theta = theta_est$par,
+    #                                                    stat = stat),
+    #                                  control = list(fnscale = -1))
+    #
+    #   theta_est$hessian <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
+    #                                  other_args = list(n_fixed = n_fixed,
+    #                                                    start_params = beta_b_est$par,
+    #                                                    stat = stat,
+    #                                                    re_only = control$re_only),
+    #                                  control = list(fnscale = -1))
+    #
+
+    # # get the hessian for theta # this is about as accurate as the call for hessian4
+    # theta_est$hessian2 <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
+    #                                other_args = list(n_fixed = n_fixed,
+    #                                                  start_params = beta_b_est$par,
+    #                                                  stat = stat,
+    #                                                  re_only = control$re_only),
+    #                                control = list(fnscale = -1))
+    #
+    # # a better hessian?
+    # theta_est$hessian3 <- numDeriv::hessian(theta_ipl, x = theta_est$par,
+    #                                         parsed_data = parsed_data,
+    #                                         other_args = list(n_fixed = n_fixed,
+    #                                                           start_params = beta_b_est$par,
+    #                                                           stat = stat,
+    #                                                           re_only = control$re_only))
+
+    # the final hessian to try.
+    # this works best
+    # theta2 <- optim(par = theta_est$par,
+    #       fn = theta_ipl,
+    #       gr = NULL,
+    #       formula = formula,
+    #       parsed_data = parsed_data,
+    #       other_args = list(n_fixed = n_fixed,
+    #                         start_params = beta_b_est$par,
+    #                         stat = stat,
+    #                         re_only = control$re_only),
+    #       method = "L-BFGS-B",
+    #       control = list(fnscale = -1),
+    #       lower = 0.00001, upper = Inf,
+    #       hessian = TRUE)
+
+    # theta_est$hessian4 <- theta2$hessian
+
+    ests <- list(theta = theta_est$par,
+                 beta = beta_b_est$par[seq_len(n_fixed)],
+                 b = beta_b_est$par[-seq_len(n_fixed)])
+
+    attr(ests, "theta_est") <- theta_est
+    attr(ests, "beta_b_est") <- beta_b_est
+    # attr(ests, "iterations") <- i
+
+    ests
 
   }
-
-  # assumes that the response is of the form Surv(time, stat). Behaviour for other Surv formats is undefined.
-  stat <- Matrix(unclass(parsed_data$fr[,1])[, "status"], ncol = 1)
-
-if(control$grad) {
-
-  # use memoised gr and fn
-
-  theta_est <- do.call(optim, c(list(par = theta_start,
-                        method = "L-BFGS-B",
-                        control = list(fnscale = -1, factr = control$factr, ndeps = control$ndeps),
-                        lower = 0.00001, upper = Inf,
-                        hessian = TRUE),
-                   theta_ipl_fn_gr(
-                     formula = formula,
-                     parsed_data = parsed_data,
-                     other_args = list(n_fixed = n_fixed,
-                                       start_params = start_params,
-                                       stat = stat,
-                                       re_only = control$re_only,
-                                       reltol = control$reltol),
-                     weights = weights,
-                     cluster_weights = cluster_weights)))
-
-  ## this one with the gradient doesn't really work very well. might work by tinkering with reltol and abstol
-  # theta_est <- optim(par = theta_start,
-  #                    fn = theta_ipl,
-  #                    gr = theta_ipl_gr_num,
-  #                    formula = formula,
-  #                    parsed_data = parsed_data,
-  #                    other_args = list(n_fixed = n_fixed,
-  #                                      start_params = start_params,
-  #                                      stat = stat,
-  #                                      re_only = control$re_only,
-  #                                      reltol = control$reltol),
-  #                    method = "L-BFGS-B",
-  #                    control = list(fnscale = -1, factr = control$factr),
-  #                    lower = 0.00001, upper = Inf,
-  #                    hessian = TRUE)
-} else {
-
-  theta_est <- optim(par = theta_start,
-                     fn = theta_ipl,
-                     gr = NULL,
-                     formula = formula,
-                     parsed_data = parsed_data,
-                     other_args = list(n_fixed = n_fixed,
-                                       start_params = start_params,
-                                       stat = stat,
-                                       re_only = control$re_only,
-                                       reltol = control$reltol),
-                     weights = weights,
-                     cluster_weights = cluster_weights,
-                     method = "L-BFGS-B",
-                     control = list(fnscale = -1, factr = control$factr, ndeps = control$ndeps),
-                     lower = 0.00001, upper = Inf,
-                     hessian = TRUE)
-}
-
-  beta_b_est <- optim(par = start_params,
-                      fn = lp,
-                      gr = lp_gr,
-                      formula = formula,
-                      parsed_data = parsed_data,
-                      other_args = list(theta = theta_est$par,
-                                        stat = stat),
-                      weights = weights,
-                      cluster_weights = cluster_weights,
-                      method = "BFGS",
-                      control = list(fnscale = -1, reltol = control$reltol),
-                      hessian = TRUE)
-
-  # # for writing estimation history.
-  # estimation_history <- list(theta_est = list(),
-  #                            beta_b_est = list())
-  #
-  # estimation_history$theta_est[[1]] <- theta_est
-  # estimation_history$beta_b_est[[1]] <- beta_b_est
-  #
-  # # iterate between these steps until convergence.
-  #
-  # for (i in seq_len(control$max_iter)){
-  #
-  #   current_ests <- c(beta_b_est$par, theta_est$par)
-  #
-  #   theta_est <- optim(par = theta_est$par,
-  #                      fn = theta_ipl,
-  #                      gr = NULL,
-  #                      formula = formula,
-  #                      parsed_data = parsed_data,
-  #                      other_args = list(n_fixed = n_fixed,
-  #                                        start_params = beta_b_est$par,
-  #                                        stat = stat,
-  #                                        re_only = control$re_only),
-  #                      method = "L-BFGS-B",
-  #                      control = list(fnscale = -1),
-  #                      lower = 0.00001, upper = Inf)
-  #
-  #   beta_b_est <- optim(par = beta_b_est$par,
-  #                       fn = lp,
-  #                       gr = lp_gr,
-  #                       formula = formula,
-  #                       parsed_data = parsed_data,
-  #                       other_args = list(theta = theta_est$par,
-  #                                         stat = stat),
-  #                       method = "BFGS",
-  #                       control = list(fnscale = -1))
-  #
-  #   estimation_history$theta_est[[i + 1]] <- theta_est
-  #   estimation_history$beta_b_est[[i + 1]] <- beta_b_est
-  #
-  #   # test convergence
-  #   converged <- max(abs(current_ests - c(beta_b_est$par, theta_est$par))) <= control$convergence_threshold
-  #
-  #   if(converged) break
-  #
-  # }
-
-#
-#
-#   beta_b_est$hessian <- optimHess(beta_b_est$par, fn = lp, gr = lp_gr, parsed_data = parsed_data,
-#                                  other_args = list(theta = theta_est$par,
-#                                                    stat = stat),
-#                                  control = list(fnscale = -1))
-#
-#   theta_est$hessian <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
-#                                  other_args = list(n_fixed = n_fixed,
-#                                                    start_params = beta_b_est$par,
-#                                                    stat = stat,
-#                                                    re_only = control$re_only),
-#                                  control = list(fnscale = -1))
-#
-
-  # # get the hessian for theta # this is about as accurate as the call for hessian4
-  # theta_est$hessian2 <- optimHess(theta_est$par, fn = theta_ipl, gr = NULL, parsed_data = parsed_data,
-  #                                other_args = list(n_fixed = n_fixed,
-  #                                                  start_params = beta_b_est$par,
-  #                                                  stat = stat,
-  #                                                  re_only = control$re_only),
-  #                                control = list(fnscale = -1))
-  #
-  # # a better hessian?
-  # theta_est$hessian3 <- numDeriv::hessian(theta_ipl, x = theta_est$par,
-  #                                         parsed_data = parsed_data,
-  #                                         other_args = list(n_fixed = n_fixed,
-  #                                                           start_params = beta_b_est$par,
-  #                                                           stat = stat,
-  #                                                           re_only = control$re_only))
-
-  # the final hessian to try.
-  # this works best
-  # theta2 <- optim(par = theta_est$par,
-  #       fn = theta_ipl,
-  #       gr = NULL,
-  #       formula = formula,
-  #       parsed_data = parsed_data,
-  #       other_args = list(n_fixed = n_fixed,
-  #                         start_params = beta_b_est$par,
-  #                         stat = stat,
-  #                         re_only = control$re_only),
-  #       method = "L-BFGS-B",
-  #       control = list(fnscale = -1),
-  #       lower = 0.00001, upper = Inf,
-  #       hessian = TRUE)
-
-  # theta_est$hessian4 <- theta2$hessian
-
-  ests <- list(theta = theta_est$par,
-       beta = beta_b_est$par[seq_len(n_fixed)],
-       b = beta_b_est$par[-seq_len(n_fixed)])
-
-  attr(ests, "theta_est") <- theta_est
-  attr(ests, "beta_b_est") <- beta_b_est
-  # attr(ests, "iterations") <- i
-
-  ests
-
-}
 
 
 #' estimate theta beta and b
