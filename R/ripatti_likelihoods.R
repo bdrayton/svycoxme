@@ -502,7 +502,7 @@ fast_risk_sets <- function(a_matrix){
 #' @export
 #'
 
-theta_ipl <- function(theta, formula, parsed_data, other_args, weights, cluster_weights){
+theta_ipl <- function(theta, formula, parsed_data, other_args, weights, cluster_weights, mean_cluster_weight, rescaled_weights_used = FALSE){
 
   # set up D
   D <- parsed_data$reTrms$Lambdat
@@ -529,26 +529,54 @@ theta_ipl <- function(theta, formula, parsed_data, other_args, weights, cluster_
     Kbb <- ests$hessian
   }
 
+
   # need to used the cluster weights here:
+  # assume that these matrices are diagonal or nearly diagonal.
+  # apply weights here.
+  # diag(D) should always be positive numbers
+  # diag(Kbb) should always be negative numbers
+  # if rescaled weights are used, these need to be multiplied by the mean of the
+  # cluster_weights, which must be supplied by the user.
+  detD = sum(cluster_weights * log(diag(D)))
+  detKbb = sum(cluster_weights * log(-diag(Kbb)))
 
-  detD <- determinant(D)$modulus
-  detKbb <- determinant(Kbb)$modulus
 
-  return_value <- c(-0.5 * detD -0.5 * detKbb + ests$value)
 
-  attr(return_value, "beta_b") <- ests$par
+  # old slow calc. at least for many clusters.
+  # detD <- determinant(D)$modulus
+  # detKbb <- determinant(Kbb)$modulus
 
-  attr(return_value, "b") <- ests$par[-seq(other_args$n_fixed)]
+  # get penalty
+  lp_est = lp(params = ests$par, formula = formula, parsed_data = parsed_data,
+              other_args = c(list(theta = theta), other_args),weights = weights,
+              cluster_weights = cluster_weights)
 
-  attr(return_value, "det(D)") <- c(detD)
+  penalty = attr(lp_est, "penalty")
 
-  attr(return_value, "D") <- D
+  value = ests$value + penalty
 
-  attr(return_value, "Kbb") <- Kbb
+  if(rescaled_weights_used){
+    detD = detD * mean_cluster_weight
+    detKbb = detKbb * mean_cluster_weight
+    penalty = detKbb * mean_cluster_weight
+  }
 
-  attr(return_value, "detKbb") <- c(detKbb)
+  # return_value <- c(ests$value - 0.5*(detD+detKbb))
+  return_value <- c(value - penalty - 0.5*(detD+detKbb))
 
-  attr(return_value, "value") <- ests$value
+  # attr(return_value, "beta_b") <- ests$par
+  #
+  # attr(return_value, "b") <- ests$par[-seq(other_args$n_fixed)]
+  #
+  # attr(return_value, "det(D)") <- c(detD)
+  #
+  # attr(return_value, "D") <- D
+  #
+  # attr(return_value, "Kbb") <- Kbb
+  #
+  # attr(return_value, "detKbb") <- c(detKbb)
+  #
+  # attr(return_value, "value") <- ests$value
 
   return_value
 
@@ -956,7 +984,7 @@ get_start_theta <- function(n_theta){
 
 control.list <- function(method = "ppl", grad = FALSE, re_only = TRUE,
                          factr = 1e3,
-                         reltol = 1e-13,
+                         reltol = 1e-5,
                          ndeps = 1e-3,
                          max_iter = 100){
 
@@ -992,7 +1020,10 @@ est_parameters <-
            theta_start = NULL,
            control = control.list(),
            weights,
-           cluster_weights) {
+           cluster_weights,
+           mean_cluster_weight = 1,
+           rescaled_weights_used = FALSE,
+           theta_fixed = NULL) {
     # Allow start parameters to be passed in, so I can use ppl, and then refin with pplextra.
 
     # this stuff is needed for each call to lp and lp_grd, but doesn't change, so
@@ -1043,7 +1074,28 @@ est_parameters <-
     # assumes that the response is of the form Surv(time, stat). Behaviour for other Surv formats is undefined.
     stat <- Matrix(unclass(parsed_data$fr[, 1])[, "status"], ncol = 1)
 
-    if (control$grad) {
+    if(!is.null(theta_fixed)){
+
+      theta_est = list(par = theta_fixed)
+
+      beta_b_est <- optim(
+        par = start_params,
+        fn = lp,
+        gr = lp_gr,
+        formula = formula,
+        parsed_data = parsed_data,
+        other_args = list(theta = theta_est$par,
+                          stat = stat),
+        weights = weights,
+        cluster_weights = cluster_weights,
+        method = "BFGS",
+        control = list(fnscale = -1, reltol = control$reltol),
+        hessian = TRUE
+      )
+
+
+
+    } else if (control$grad) {
       # use memoised gr and fn
 
       theta_est <- do.call(optim, c(
@@ -1105,6 +1157,7 @@ est_parameters <-
         ),
         weights = weights,
         cluster_weights = cluster_weights,
+        mean_cluster_weight = mean_cluster_weight,
         method = "L-BFGS-B",
         control = list(
           fnscale = -1,

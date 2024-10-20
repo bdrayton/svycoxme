@@ -9,7 +9,7 @@ control.list(
   grad = FALSE,
   re_only = TRUE,
   factr = 1000,
-  reltol = 1e-13,
+  reltol = 1e-05,
   ndeps = 0.001,
   max_iter = 100
 )

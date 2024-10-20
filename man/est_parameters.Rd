@@ -11,7 +11,10 @@ est_parameters(
   theta_start = NULL,
   control = control.list(),
   weights,
-  cluster_weights
+  cluster_weights,
+  mean_cluster_weight = 1,
+  rescaled_weights_used = FALSE,
+  theta_fixed = NULL
 )
 }
 \description{

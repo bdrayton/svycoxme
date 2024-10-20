@@ -4,7 +4,16 @@
 \alias{theta_ipl}
 \title{likelihood for theta}
 \usage{
-theta_ipl(theta, formula, parsed_data, other_args, weights, cluster_weights)
+theta_ipl(
+  theta,
+  formula,
+  parsed_data,
+  other_args,
+  weights,
+  cluster_weights,
+  mean_cluster_weight,
+  rescaled_weights_used = FALSE
+)
 }
 \description{
 likelihood for theta

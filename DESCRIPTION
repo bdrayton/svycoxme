@@ -20,8 +20,8 @@ Imports:
 	coxme,
 	lme4
 Roxygen: list(markdown = TRUE)
-LinkingTo: 
-    Rcpp
+LinkingTo:  
+	Rcpp
 Suggests: 
     knitr,
     rmarkdown
