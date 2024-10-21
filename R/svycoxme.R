@@ -187,13 +187,22 @@ svycoxme.svyrep.design <-
             return.replicates = FALSE,
             vfixed = NULL,
             na.action,
-            multicore = getOption("survey.multicore")) {
+            multicore = getOption("survey.multicore"),
+            cores = 2) {
     subset <- substitute(subset)
     subset <- eval(subset, design$variables, parent.frame())
     if (!is.null(subset))
       design <- design[subset,]
-    if (multicore && !requireNamespace(parallel, quietly = TRUE))
+    if (multicore && !requireNamespace("future.apply", quietly = TRUE))
       multicore <- FALSE
+    if (multicore) {
+      message("future.apply is used for parallel processing")
+      if (cores > parallelly::availableCores()) {
+        cores = parallelly::availableCores()
+        warning("cores is greater than parallelly::availableCores()")
+      }
+      message("replicate fits will be processed on ", cores, " cores")
+    }
     data <- design$variables
     g <- match.call()
     g$design <- NULL
@@ -269,73 +278,94 @@ svycoxme.svyrep.design <-
 
 
 
-    ## Ignore multicore for now
-    # if (multicore) {
-    #   betas <- do.call(rbind, parallel::mclapply(1:ncol(wts),
-    #                                              function(i) {
-    #                                                fitter(full$x, full$y, full$strata, full$offset,
-    #                                                       coef(full), coxph.control(), as.vector(wts[,
-    #                                                                                                  i]) * pw1 + EPSILON, full$method, names(full$resid))$coef
-    #                                              }))
-    # }
-    # else {
-    for (i in 1:ncol(wts)) {
-      # .survey.prob.weights <- as.vector(wts[,i]) * pw1 + EPSILON
+    ## multicore
+    if (multicore) {
 
-      weights_temp = as.vector(wts[, i]) * pw1
+      old_plan = future::plan()
 
-      .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
+      future::plan(future::multisession, workers = cores)
 
-      data_temp = data[which(weights_temp != 0),]
+      replicate_fit_function <- function(i){
 
-      # handle errors here, but for future, consider coxme wrapper with error
-      # handling that gets called instead of coxme.
+        weights_temp = as.vector(wts[, i]) * pw1
 
-      fit <- try(with(data_temp, eval(g)))
-      # fit <- with(data, eval(g))
+        .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
 
-      # assuming the method is the problem
-      # if(inherits(fit, "try-error")) {
-      #
-      #   g$optpar <- list(method = "Brent",
-      #                    control=list(reltol = 1e-5))
-      #
-      #   fit <- try(with(data, eval(g)))
-      #
-      # }
+        data_temp = data[which(weights_temp != 0),]
 
-      # assuming the start values are the problem
-      # if(inherits(fit, "try-error")) {
-      #
-      #   g$init <- NULL
-      #   g$vinit <- NULL
-      #
-      #   fit <- try(with(data, eval(g)))
-      #
-      # }
-      if (inherits(fit, "try-error")) {
-        ## the cells are already NA by default
-        # betas[i, ] <- rep(NA, ncol(betas))
-        # thetas[i, ] <- rep(NA, ncol(thetas))
-        # frails[i, ] <- rep(NA, ncol(frails))
-      } else {
-        betas[i,] <- coef(fit)
-        thetas[i,] <- unlist(coxme::VarCorr(fit))
-        new_frails <- unlist(coxme::random.effects(fit))
-        frails[i, which(names(full_frails) %in% names(new_frails))] <-
-          new_frails
+        # handle errors here, but for future, consider coxme wrapper with error
+        # handling that gets called instead of coxme.
+
+        fit <- try(with(data_temp, eval(g)))
+
+        if (inherits(fit, "try-error")) {
+          list(
+             beta   = rep(NA, ncol(betas))
+            ,theta  = rep(NA, ncol(thetas))
+            ,frails = rep(NA, ncol(frails))
+          )
+        } else {
+          list(
+             beta   = coef(fit)
+            ,theta  = unlist(coxme::VarCorr(fit))
+            ,frails = unlist(coxme::random.effects(fit))
+          )
+        }
       }
 
-      # updating initial betas and thetas may improve computation time,
-      # particularly in later iterations. nah, it doesn't. It's not slower either.
-      if (starts == "mean") {
-        g$init <- colMeans(betas, na.rm = TRUE)
-        g$vinit <- colMeans(thetas, na.rm = TRUE)
+      replicate_fits <- future.apply::future_lapply(1:ncol(wts), replicate_fit_function)
+
+      # unpack the list of replicate fit results into the matrices.
+      # leaving this as a separate step, as indexing into the same matrix from multiple workers
+      # seem like it could lead to problems (I'm not sure).
+
+      for(i in 1:ncol(wts)){
+        betas[i,]  <- replicate_fits[[i]][["beta"]]
+        thetas[i,] <- replicate_fits[[i]][["theta"]]
+        new_frails <- replicate_fits[[i]][["frails"]]
+        frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
       }
 
+      future::plan(old_plan)
 
     }
-    # }
+    else {
+      for (i in 1:ncol(wts)) {
+        # .survey.prob.weights <- as.vector(wts[,i]) * pw1 + EPSILON
+
+        weights_temp = as.vector(wts[, i]) * pw1
+
+        .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
+
+        data_temp = data[which(weights_temp != 0),]
+
+        # handle errors here, but for future, consider coxme wrapper with error
+        # handling that gets called instead of coxme.
+
+        fit <- try(with(data_temp, eval(g)))
+
+        if (inherits(fit, "try-error")) {
+          ## the cells are already NA by default
+          # betas[i, ] <- rep(NA, ncol(betas))
+          # thetas[i, ] <- rep(NA, ncol(thetas))
+          # frails[i, ] <- rep(NA, ncol(frails))
+        } else {
+          betas[i,] <- coef(fit)
+          thetas[i,] <- unlist(coxme::VarCorr(fit))
+          new_frails <- unlist(coxme::random.effects(fit))
+          frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
+        }
+
+        # updating initial betas and thetas may improve computation time,
+        # particularly in later iterations. nah, it doesn't. It's not slower either.
+        if (starts == "mean") {
+          g$init <- colMeans(betas, na.rm = TRUE)
+          g$vinit <- colMeans(thetas, na.rm = TRUE)
+        }
+
+
+      }
+    }
     if (length(nas))
       design <- design[-nas,]
     v <- svrVar(betas, scale, rscales, mse = design$mse, coef = beta0)
