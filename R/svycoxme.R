@@ -240,7 +240,8 @@ svycoxme.svyrep.design <-
     full_frails_names <- names(full_frails)
     frails <- matrix(ncol = length(full_frails), nrow = nreps)
 
-    wts <- design$repweights
+    # added as.matrix as this expands the weights if they are compressed
+    wts <- as.matrix(design$repweights)
     if (!design$combined.weights) {
       pw1 <- pwts
       rwt <- pw1 / mean(pw1)
@@ -276,8 +277,6 @@ svycoxme.svyrep.design <-
     #   g$vfixed <- theta0
     # }
 
-
-
     ## multicore
     if (multicore) {
 
@@ -286,7 +285,7 @@ svycoxme.svyrep.design <-
       future::plan(future::multisession, workers = cores)
 
       replicate_fit_function <- function(i){
-
+        # message(paste("iteration", i))
         weights_temp = as.vector(wts[, i]) * pw1
 
         .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
@@ -304,16 +303,22 @@ svycoxme.svyrep.design <-
             ,theta  = rep(NA, ncol(thetas))
             ,frails = rep(NA, ncol(frails))
           )
+
+
         } else {
           list(
              beta   = coef(fit)
             ,theta  = unlist(coxme::VarCorr(fit))
             ,frails = unlist(coxme::random.effects(fit))
           )
+
         }
       }
 
-      replicate_fits <- future.apply::future_lapply(1:ncol(wts), replicate_fit_function)
+      replicate_fits <- future.apply::future_lapply(1:ncol(wts), replicate_fit_function,
+                                                    future.seed = TRUE,
+                                                    future.packages = "survival",
+                                                    future.conditions = "message")
 
       # unpack the list of replicate fit results into the matrices.
       # leaving this as a separate step, as indexing into the same matrix from multiple workers
@@ -325,6 +330,7 @@ svycoxme.svyrep.design <-
         new_frails <- replicate_fits[[i]][["frails"]]
         frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
       }
+
 
       future::plan(old_plan)
 
