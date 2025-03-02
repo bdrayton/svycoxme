@@ -546,7 +546,7 @@ residuals.coxme <- function (object,
     newstrat <- c(diff(as.numeric(istrat[ord])) != 0, 1)
   }
   newstrat[n] <- 1
-  X <- X[ord,]
+  X <- X[ord,,drop = FALSE]
   time_start <- time_start[ord]
   time_stop <- time_stop[ord]
   stat <- stat[ord]
