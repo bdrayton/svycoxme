@@ -192,16 +192,14 @@ svycoxme.svyrep.design <-
     subset <- eval(subset, design$variables, parent.frame())
     if (!is.null(subset))
       design <- design[subset,]
-    if (multicore && !requireNamespace("future.apply", quietly = TRUE))
-      multicore <- FALSE
-    if (multicore) {
-      message("future.apply is used for parallel processing")
-      if (cores > parallelly::availableCores()) {
-        cores = parallelly::availableCores()
-        warning("cores is greater than parallelly::availableCores()")
-      }
-      message("replicate fits will be processed on ", cores, " cores")
-    }
+
+    # set up of futures needs to occur outside
+    # if (multicore && !requireNamespace("future.apply", quietly = TRUE))
+    #   multicore <- FALSE
+    # if (multicore) {
+    #   message("future.apply is used for parallel processing")
+    # }
+
     data <- design$variables
     g <- match.call()
     g$design <- NULL
@@ -279,9 +277,9 @@ svycoxme.svyrep.design <-
     ## multicore
     if (multicore) {
 
-      old_plan = future::plan()
-
-      future::plan(future::multisession, workers = cores)
+      # futures setup needs to happen outside this function.
+      # old_plan = future::plan()
+      # future::plan(future::multisession, workers = cores)
 
       replicate_fit_function <- function(i){
         # message(paste("iteration", i))
@@ -302,7 +300,6 @@ svycoxme.svyrep.design <-
             ,theta  = rep(NA, ncol(thetas))
             ,frails = rep(NA, ncol(frails))
           )
-
 
         } else {
           list(
@@ -331,7 +328,7 @@ svycoxme.svyrep.design <-
       }
 
 
-      future::plan(old_plan)
+      # future::plan(old_plan)
 
     }
     else {
