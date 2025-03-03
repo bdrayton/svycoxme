@@ -20,7 +20,7 @@
 #' @useDynLib svycoxme, .registration=TRUE
 #' @importFrom Rcpp evalCpp
 
-svycoxme <- function(formula, design, subset = NULL, ...) {
+svycoxme <- function(formula, design, subset = NULL, rescale = TRUE, ...) {
   survey:::.svycheck(design)
   UseMethod("svycoxme", design)
 }
@@ -186,8 +186,7 @@ svycoxme.svyrep.design <-
             return.replicates = FALSE,
             vfixed = NULL,
             na.action,
-            multicore = getOption("survey.multicore"),
-            cores = 2) {
+            multicore = getOption("survey.multicore")) {
     subset <- substitute(subset)
     subset <- eval(subset, design$variables, parent.frame())
     if (!is.null(subset))
@@ -612,105 +611,6 @@ residuals.coxme <- function (object,
 }
 
 
-
-
-# this is the old method. replaced with much faster method above.
-#' @export
-residuals2.coxme <-
-  function (object,
-            data,
-            weighted = TRUE,
-            include_re = FALSE,
-            type = c("score", "dfbeta", "dfbetas"),
-            ...) {
-    type <- match.arg(type)
-    otype <- type
-
-    if (!any(type == c("score", "dfbeta", "dfbetas"))) {
-      stop(paste(type, " residuals have not been implemented."))
-
-    }
-
-
-    if (type == "dfbeta" || type == "dfbetas") {
-      otype <- type
-      type <- "score"
-    }
-
-    # vv <- object$naive.var
-    # if (is.null(vv)){
-
-    # get_information get the covariance matrix for fixed and random effects
-    # i only need fixed effects because i'm ignoring the random effects (too slow to compute the residuals)
-    # actually, I may want, depends on include_re.
-
-    if (include_re) {
-      vv <- get_information.coxme(object)
-    } else {
-      vv <- vcov(object)
-    }
-
-    strat <- object$strata
-    if (!is.null(strat))
-      stop("Handling models with strata has not been implemented")
-
-    if (type == "score") {
-      parts <- make_parts.coxme(object, data)
-
-      # I've modified make_parts.coxme to return class(matrix), so don't need this conversion.
-      # the C++ method needs regular matrices
-      # parts <- lapply(parts, as.matrix)
-
-      # rr <- resid <- calc_ui(parts, weighted = weighted)
-      if (!include_re) {
-        rr <- with(parts, {
-          C_calc_ui(
-            time_start = time_start,
-            time_stop = time_stop,
-            stat = stat,
-            weights = weights,
-            exp_risk_score = exp_risk_score,
-            S0 = S0,
-            S1_X = S1_X,
-            X = X,
-            weighted = TRUE
-          )
-        })
-      } else {
-        stop("residuals for random effects are not implemented")
-        rr <- with(parts, {
-          C_calc_ui(
-            time_start = time_start,
-            time_stop = time_stop,
-            stat = stat,
-            weights = weights,
-            exp_risk_score = exp_risk_score,
-            S0 = S0,
-            S1_X = cbind(S1_X, S1_Z),
-            X = cbind(X, Z),
-            weighted = TRUE
-          )
-        })
-
-        rr = rr - cbind(matrix(0, nrow = nrow(rr), ncol = ncol(parts$X)), parts$ui_penalty)
-
-      }
-
-      if (otype == "dfbeta") {
-        rr <- rr %*% vv
-      }
-      else if (otype == "dfbetas") {
-        rr <- (rr %*% vv) %*% diag(sqrt(1 / diag(vv)))
-      }
-    }
-
-    if (!is.null(object$na.action)) {
-      rr <- naresid(object$na.action, rr)
-    }
-
-    rr
-
-  }
 
 #' @method summary svycoxme
 #' @export

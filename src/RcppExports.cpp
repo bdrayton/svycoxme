@@ -13,27 +13,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// C_draw_event_times
-Rcpp::List C_draw_event_times(Rcpp::IntegerVector id, Rcpp::NumericVector start_time, Rcpp::NumericVector end_time, Rcpp::IntegerVector status, Rcpp::NumericMatrix X, Rcpp::NumericVector risk_score, Rcpp::NumericVector baseline_hazard, Rcpp::NumericVector baseline_hazard_start, double origin, int single, int maximum_events);
-RcppExport SEXP _svycoxme_C_draw_event_times(SEXP idSEXP, SEXP start_timeSEXP, SEXP end_timeSEXP, SEXP statusSEXP, SEXP XSEXP, SEXP risk_scoreSEXP, SEXP baseline_hazardSEXP, SEXP baseline_hazard_startSEXP, SEXP originSEXP, SEXP singleSEXP, SEXP maximum_eventsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type id(idSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type start_time(start_timeSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type end_time(end_timeSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type status(statusSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type X(XSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type risk_score(risk_scoreSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type baseline_hazard(baseline_hazardSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type baseline_hazard_start(baseline_hazard_startSEXP);
-    Rcpp::traits::input_parameter< double >::type origin(originSEXP);
-    Rcpp::traits::input_parameter< int >::type single(singleSEXP);
-    Rcpp::traits::input_parameter< int >::type maximum_events(maximum_eventsSEXP);
-    rcpp_result_gen = Rcpp::wrap(C_draw_event_times(id, start_time, end_time, status, X, risk_score, baseline_hazard, baseline_hazard_start, origin, single, maximum_events));
-    return rcpp_result_gen;
-END_RCPP
-}
 // C_rpexp
 Rcpp::NumericVector C_rpexp(int n, Rcpp::NumericVector rate, Rcpp::NumericVector t, double start);
 static SEXP _svycoxme_C_rpexp_try(SEXP nSEXP, SEXP rateSEXP, SEXP tSEXP, SEXP startSEXP) {
@@ -108,7 +87,6 @@ RcppExport SEXP _svycoxme_RcppExport_registerCCallable() {
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_svycoxme_C_draw_event_times", (DL_FUNC) &_svycoxme_C_draw_event_times, 11},
     {"_svycoxme_C_rpexp", (DL_FUNC) &_svycoxme_C_rpexp, 4},
     {"_svycoxme_agscore3", (DL_FUNC) &_svycoxme_agscore3, 9},
     {"_svycoxme_RcppExport_registerCCallable", (DL_FUNC) &_svycoxme_RcppExport_registerCCallable, 0},

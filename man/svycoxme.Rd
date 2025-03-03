@@ -4,7 +4,7 @@
 \alias{svycoxme}
 \title{Survey-weighted mixed-effects Cox models}
 \usage{
-svycoxme(formula, design, subset = NULL, ...)
+svycoxme(formula, design, subset = NULL, rescale = TRUE, ...)
 }
 \arguments{
 \item{formula}{Model formula.}
@@ -13,9 +13,9 @@ svycoxme(formula, design, subset = NULL, ...)
 
 \item{subset}{Expression to select a subpopulation.}
 
-\item{...}{Other arguments passed to \link[coxme]{coxme}.}
-
 \item{rescale}{Rescale weights to improve numerical stability.}
+
+\item{...}{Other arguments passed to \link[coxme]{coxme}.}
 }
 \value{
 An object of class \code{svycoxme}.
