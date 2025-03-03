@@ -11,7 +11,7 @@
 #' @param design `survey.design` object. It must contain all variables in the formula.
 #' @param subset Expression to select a subpopulation.
 #' @param rescale Rescale weights to improve numerical stability.
-#' @param ... Other arguments passed to `coxme`.
+#' @param ... Other arguments passed to \link[coxme]{coxme}.
 #'
 #' @return An object of class `svycoxme`.
 #'
@@ -40,7 +40,6 @@ svycoxme.DBIsvydesign <- function(formula, design, subset, ...) {
 
 #' @method svycoxme survey.design
 #' @export
-
 
 svycoxme.survey.design <-
   function(formula,

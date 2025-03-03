@@ -13,7 +13,7 @@ svycoxme(formula, design, subset = NULL, ...)
 
 \item{subset}{Expression to select a subpopulation.}
 
-\item{...}{Other arguments passed to \code{coxme}.}
+\item{...}{Other arguments passed to \link[coxme]{coxme}.}
 
 \item{rescale}{Rescale weights to improve numerical stability.}
 }
