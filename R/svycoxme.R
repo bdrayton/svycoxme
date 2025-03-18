@@ -1,7 +1,6 @@
 
-
-
-
+#' @importFrom stats coef model.frame model.response naresid resid vcov weights
+NULL
 
 #' Survey-weighted mixed-effects Cox models
 #'
