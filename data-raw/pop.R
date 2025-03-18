@@ -34,6 +34,7 @@ pop$sampled = pop$group_id %in% sample(unique(pop$group_id), size = n_samp)
 usethis::use_data(pop, overwrite = TRUE, compress = "xz")
 
 samp_srcs = pop[which(pop$sampled), , drop = FALSE]
+samp_srcs$sampled <- NULL
 samp_srcs$fpc = length(unique(group_id))
 samp_srcs$weight = samp_srcs$fpc/n_samp
 

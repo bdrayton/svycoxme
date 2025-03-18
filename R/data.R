@@ -17,6 +17,7 @@
 #'    \item{stat}{Event/Censoring indicator. Event=1; Censoring=0}
 #'    \item{group_id}{Unique cluster ID}
 #'    \item{obs_id}{Unique observation ID}
+#'    \item{sampled}{Sampling indicator. Is this observation in \link[svycoxme]{samp_srcs}?}
 #' }
 "pop"
 
