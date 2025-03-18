@@ -28,7 +28,7 @@ This is a basic example using the [samp_srcs](/man/samp_srcs.Rd) dataset provide
 library(svycoxme)
 des <- svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
 
-fit1 = svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id), design = des)
+fit1 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id), design = des)
 
 summary(fit1)
 
