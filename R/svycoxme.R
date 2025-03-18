@@ -158,7 +158,8 @@ svycoxme.survey.design <-
     n_coef <- length(coef(g))
 
     # fixed effects only
-    g$var <- g$variance[seq(n_coef), seq(n_coef)]
+    # drop = FALSE forces retention of the matrix class
+    g$var <- g$variance[seq(n_coef), seq(n_coef), drop = FALSE]
 
     g$wald.test <- coef(g) %*% solve(g$var, coef(g))
     g$ll <- g$loglik
