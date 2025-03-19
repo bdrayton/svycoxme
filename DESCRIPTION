@@ -18,7 +18,9 @@ Imports:
     Rcpp,
 	lme4,
 	rlang,
-	Matrix
+	Matrix,
+	future,
+	parallelly
 Roxygen: list(markdown = TRUE)
 LinkingTo: 
 	Rcpp
@@ -26,8 +28,6 @@ Suggests:
     knitr,
     rmarkdown,
     future.apply,
-	future,
-	parallelly,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3

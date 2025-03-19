@@ -50,7 +50,7 @@ summary(fit2)
 
 # use multicore processing
 n_cores = floor(parallelly::availableCores() * 0.8)
-future::plan("multicore", cores = n_cores)
+future::plan("multicore", workers = n_cores)
 fit3 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
                  design = repdes, multicore = TRUE)
 all.equal(coef(fit2), coef(fit3))
