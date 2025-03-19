@@ -33,7 +33,7 @@ An object of class \code{svycoxme}.
 Fit a mixed-effect proportional hazards model to data from a complex design.
 }
 \details{
-Parallel processing is done with \link[future.apply]{future.lapply}. Future planning
+Parallel processing is done with \link[future.apply]{future_lapply}. Future planning
 is left to the user, e.g. using \link[future]{plan} before the call to \code{svycoxme}.
 }
 \examples{

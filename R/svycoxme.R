@@ -1,5 +1,7 @@
 
 #' @importFrom stats coef model.frame model.response naresid resid vcov weights
+#' @importFrom future plan
+#' @importFrom parallelly availableCores
 NULL
 
 #' Survey-weighted mixed-effects Cox models
