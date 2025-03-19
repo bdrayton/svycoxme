@@ -1,5 +1,5 @@
 
-#' @importFrom stats coef model.frame model.response naresid resid vcov weights
+#' @importFrom stats coef model.frame model.response naresid resid vcov weights reformulate
 #' @importFrom future plan
 #' @importFrom parallelly availableCores
 NULL
@@ -47,7 +47,7 @@ NULL
 #'
 
 svycoxme <- function(formula, design, subset = NULL, rescale = TRUE, multicore = FALSE, ...) {
-  survey:::.svycheck(design)
+  .svycheck(design)
   UseMethod("svycoxme", design)
 }
 
@@ -461,7 +461,7 @@ residuals.coxme <- function (object,
 
   # need to use getFixedFormula, otherwise model.frame may complain about random effects terms.
   response <-
-    model.response(model.frame(lme4:::getFixedFormula(form), data))
+    model.response(model.frame(getFixedFormula(form), data))
 
   n = as.integer(nrow(response))
 
