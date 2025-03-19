@@ -6,10 +6,14 @@ NULL
 #'
 #' Fit a mixed-effect proportional hazards model to data from a complex design.
 #'
+#' Parallel processing is done with \link[future.apply]{future.lapply}. Future planning
+#' is left to the user, e.g. using \link[future]{plan} before the call to `svycoxme`.
+#'
 #' @param formula Model formula.
 #' @param design `survey.design` object. It must contain all variables in the formula.
 #' @param subset Expression to select a subpopulation.
 #' @param rescale Rescale weights to improve numerical stability.
+#' @param multicore Flag indicating if parallel processing should be used with replicate weight designs.
 #' @param ... Other arguments passed to \link[coxme]{coxme}.
 #'
 #' @return An object of class `svycoxme`.
@@ -18,8 +22,29 @@ NULL
 #'
 #' @useDynLib svycoxme, .registration=TRUE
 #' @importFrom Rcpp evalCpp
+#'
+#' @examples
+#' des <- svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
+#' fit1 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#'                  design = des)
+#' summary(fit1)
+#'
+#' # with replicate weights
+#' repdes <- as.svrepdesign(des, type = "bootstrap")
+#' fit2 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#'                  design = repdes)
+#' summary(fit2)
+#'
+#' # use multicore processing
+#' n_cores = floor(parallelly::availableCores() * 0.8)
+#' future::plan("multicore", cores = n_cores)
+#' fit3 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#'                  design = repdes, multicore = TRUE)
+#' all.equal(coef(fit2), coef(fit3))
+#' future::plan("sequential")
+#'
 
-svycoxme <- function(formula, design, subset = NULL, rescale = TRUE, ...) {
+svycoxme <- function(formula, design, subset = NULL, rescale = TRUE, multicore = FALSE, ...) {
   survey:::.svycheck(design)
   UseMethod("svycoxme", design)
 }
@@ -45,6 +70,7 @@ svycoxme.survey.design <-
            design,
            subset = NULL,
            rescale = TRUE,
+           multicore = FALSE,
            ...) {
     subset <- substitute(subset)
     subset <- eval(subset, model.frame(design), parent.frame())
@@ -182,9 +208,7 @@ svycoxme.svyrep.design <-
             rescale = NULL,
             ...,
             control = coxme::coxme.control(),
-            starts = "mean",
             return.replicates = FALSE,
-            vfixed = NULL,
             na.action,
             multicore = getOption("survey.multicore")) {
     subset <- substitute(subset)
@@ -220,7 +244,6 @@ svycoxme.svyrep.design <-
       stop("all variables must be in design= argument")
     .survey.prob.weights <- pwts
     g$control = control
-    g$vfixed = vfixed
     full <- with(data, eval(g))
     # full <- eval(g)
 
@@ -267,48 +290,43 @@ svycoxme.svyrep.design <-
     g$init <- beta0
     g$vinit <- theta0
 
-    # will fix theta, which should decrease the perturbation is bootstrap fixed effects...
-    # edit: g$vfixed needs to be set to the true value of theta.
-    # if(fix.v){
-    #   g$vfixed <- theta0
-    # }
+    replicate_fit_function <- function(i){
+      # message(paste("iteration", i))
+      weights_temp = as.vector(wts[, i]) * pw1
+
+      .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
+
+      # the trick in svycoxph of of setting zero weights to some tiny value
+      # doesn't work with coxme, so I do need to actually subset out these
+      # observations.
+      data_temp = data[which(weights_temp != 0),]
+
+      # handle errors here, but for future, consider coxme wrapper with error
+      # handling that gets called instead of coxme.
+
+      fit <- try(with(data_temp, eval(g)))
+
+      if (inherits(fit, "try-error")) {
+        list(
+          beta   = rep(NA, ncol(betas))
+          ,theta  = rep(NA, ncol(thetas))
+          ,frails = rep(NA, ncol(frails))
+        )
+
+      } else {
+        list(
+          beta   = coef(fit)
+          ,theta  = unlist(coxme::VarCorr(fit))
+          ,frails = unlist(coxme::random.effects(fit))
+        )
+
+      }
+    }
+
+
 
     ## multicore
     if (multicore) {
-
-      # futures setup needs to happen outside this function.
-      # old_plan = future::plan()
-      # future::plan(future::multisession, workers = cores)
-
-      replicate_fit_function <- function(i){
-        # message(paste("iteration", i))
-        weights_temp = as.vector(wts[, i]) * pw1
-
-        .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
-
-        data_temp = data[which(weights_temp != 0),]
-
-        # handle errors here, but for future, consider coxme wrapper with error
-        # handling that gets called instead of coxme.
-
-        fit <- try(with(data_temp, eval(g)))
-
-        if (inherits(fit, "try-error")) {
-          list(
-             beta   = rep(NA, ncol(betas))
-            ,theta  = rep(NA, ncol(thetas))
-            ,frails = rep(NA, ncol(frails))
-          )
-
-        } else {
-          list(
-             beta   = coef(fit)
-            ,theta  = unlist(coxme::VarCorr(fit))
-            ,frails = unlist(coxme::random.effects(fit))
-          )
-
-        }
-      }
 
       replicate_fits <- future.apply::future_lapply(1:ncol(wts), replicate_fit_function,
                                                     future.seed = TRUE,
@@ -326,44 +344,16 @@ svycoxme.svyrep.design <-
         frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
       }
 
-
-      # future::plan(old_plan)
-
     }
     else {
       for (i in 1:ncol(wts)) {
-        # .survey.prob.weights <- as.vector(wts[,i]) * pw1 + EPSILON
 
-        weights_temp = as.vector(wts[, i]) * pw1
+        replicate_fits <- lapply(1:ncol(wts), replicate_fit_function)
 
-        .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
-
-        data_temp = data[which(weights_temp != 0),]
-
-        # handle errors here, but for future, consider coxme wrapper with error
-        # handling that gets called instead of coxme.
-
-        fit <- try(with(data_temp, eval(g)))
-
-        if (inherits(fit, "try-error")) {
-          ## the cells are already NA by default
-          # betas[i, ] <- rep(NA, ncol(betas))
-          # thetas[i, ] <- rep(NA, ncol(thetas))
-          # frails[i, ] <- rep(NA, ncol(frails))
-        } else {
-          betas[i,] <- coef(fit)
-          thetas[i,] <- unlist(coxme::VarCorr(fit))
-          new_frails <- unlist(coxme::random.effects(fit))
-          frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
-        }
-
-        # updating initial betas and thetas may improve computation time,
-        # particularly in later iterations. nah, it doesn't. It's not slower either.
-        if (starts == "mean") {
-          g$init <- colMeans(betas, na.rm = TRUE)
-          g$vinit <- colMeans(thetas, na.rm = TRUE)
-        }
-
+        betas[i,]  <- replicate_fits[[i]][["beta"]]
+        thetas[i,] <- replicate_fits[[i]][["theta"]]
+        new_frails <- replicate_fits[[i]][["frails"]]
+        frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
 
       }
     }

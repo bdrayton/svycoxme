@@ -4,7 +4,14 @@
 \alias{svycoxme}
 \title{Survey-weighted mixed-effects Cox models}
 \usage{
-svycoxme(formula, design, subset = NULL, rescale = TRUE, ...)
+svycoxme(
+  formula,
+  design,
+  subset = NULL,
+  rescale = TRUE,
+  multicore = FALSE,
+  ...
+)
 }
 \arguments{
 \item{formula}{Model formula.}
@@ -15,6 +22,8 @@ svycoxme(formula, design, subset = NULL, rescale = TRUE, ...)
 
 \item{rescale}{Rescale weights to improve numerical stability.}
 
+\item{multicore}{Flag indicating if parallel processing should be used with replicate weight designs.}
+
 \item{...}{Other arguments passed to \link[coxme]{coxme}.}
 }
 \value{
@@ -22,4 +31,29 @@ An object of class \code{svycoxme}.
 }
 \description{
 Fit a mixed-effect proportional hazards model to data from a complex design.
+}
+\details{
+Parallel processing is done with \link[future.apply]{future.lapply}. Future planning
+is left to the user, e.g. using \link[future]{plan} before the call to \code{svycoxme}.
+}
+\examples{
+des <- svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
+fit1 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+                 design = des)
+summary(fit1)
+
+# with replicate weights
+repdes <- as.svrepdesign(des, type = "bootstrap")
+fit2 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+                 design = repdes)
+summary(fit2)
+
+# use multicore processing
+n_cores = floor(parallelly::availableCores() * 0.8)
+future::plan("multicore", cores = n_cores)
+fit3 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+                 design = repdes, multicore = TRUE)
+all.equal(coef(fit2), coef(fit3))
+future::plan("sequential")
+
 }
