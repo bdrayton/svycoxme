@@ -6,7 +6,7 @@ NULL
 #'
 #' Fit a mixed-effect proportional hazards model to data from a complex design.
 #'
-#' Parallel processing is done with \link[future.apply]{future.lapply}. Future planning
+#' Parallel processing is done with \link[future.apply]{future_lapply}. Future planning
 #' is left to the user, e.g. using \link[future]{plan} before the call to `svycoxme`.
 #'
 #' @param formula Model formula.
