@@ -557,17 +557,30 @@ residuals.coxme <- function (object,
   storage.mode(newstrat) <- "integer"
   storage.mode(exp_risk_score) <- storage.mode(weights) <- "double"
   if (type == "score") {
-    resid = agscore3(
-      time_start,
-      time_stop,
-      stat,
-      covar = X,
-      strata = istrat,
-      score = exp_risk_score,
-      weights = weights[ord],
-      sort1 = sort1 - 1L,
-      method = as.integer(method == "efron")
-    )
+
+    if (response_type == "right") {
+      resid = coxscore2(
+        time = time_stop,
+        status = stat,
+        covar = X,
+        strata = istrat,
+        score = exp_risk_score,
+        weights = weights[ord],
+        method = as.integer(method == "efron")
+      )
+    } else if (response_type == "counting") {
+      resid = agscore3(
+        time_start,
+        time_stop,
+        stat,
+        covar = X,
+        strata = istrat,
+        score = exp_risk_score,
+        weights = weights[ord],
+        sort1 = sort1 - 1L,
+        method = as.integer(method == "efron")
+      )
+    }
 
   }
 

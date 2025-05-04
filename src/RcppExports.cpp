@@ -69,6 +69,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// coxscore2
+Rcpp::NumericMatrix coxscore2(Rcpp::NumericVector time, Rcpp::NumericVector status, Rcpp::NumericMatrix covar, Rcpp::IntegerVector strata, Rcpp::NumericVector score, Rcpp::NumericVector weights, int method);
+RcppExport SEXP _svycoxme_coxscore2(SEXP timeSEXP, SEXP statusSEXP, SEXP covarSEXP, SEXP strataSEXP, SEXP scoreSEXP, SEXP weightsSEXP, SEXP methodSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type time(timeSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type status(statusSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type covar(covarSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type strata(strataSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type score(scoreSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< int >::type method(methodSEXP);
+    rcpp_result_gen = Rcpp::wrap(coxscore2(time, status, covar, strata, score, weights, method));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 // validate (ensure exported C++ functions exist before calling them)
 static int _svycoxme_RcppExport_validate(const char* sig) { 
@@ -89,6 +106,7 @@ RcppExport SEXP _svycoxme_RcppExport_registerCCallable() {
 static const R_CallMethodDef CallEntries[] = {
     {"_svycoxme_C_rpexp", (DL_FUNC) &_svycoxme_C_rpexp, 4},
     {"_svycoxme_agscore3", (DL_FUNC) &_svycoxme_agscore3, 9},
+    {"_svycoxme_coxscore2", (DL_FUNC) &_svycoxme_coxscore2, 7},
     {"_svycoxme_RcppExport_registerCCallable", (DL_FUNC) &_svycoxme_RcppExport_registerCCallable, 0},
     {NULL, NULL, 0}
 };

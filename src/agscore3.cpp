@@ -49,13 +49,17 @@ Rcpp::NumericMatrix agscore3(Rcpp::NumericVector tstart,
 
 	int i1 = n - 1;
 
-	Rcpp::NumericVector a(nvar);	
-	Rcpp::NumericVector a2(nvar);	
-	Rcpp::NumericVector mean(nvar); 
-	Rcpp::NumericVector mh1(nvar);	
-	Rcpp::NumericVector mh2(nvar);	
-	Rcpp::NumericVector mh3(nvar);	
-	Rcpp::NumericVector xhaz(nvar); 
+	Rcpp::NumericVector a(nvar);
+	Rcpp::NumericVector a2(nvar);
+	Rcpp::NumericVector mean(nvar);
+	Rcpp::NumericVector mh1(nvar);
+	Rcpp::NumericVector mh2(nvar);
+	Rcpp::NumericVector mh3(nvar);
+	Rcpp::NumericVector xhaz(nvar);
+
+	for (i=0; i<n; i++) {
+	  for (k=0; k<nvar; k++) resid(i, k) = 0.0;
+	}
 
 	currentstrata = strata[n - 1];
 
@@ -74,8 +78,8 @@ Rcpp::NumericMatrix agscore3(Rcpp::NumericVector tstart,
 				}
 			}
 			// /* rezero */
-			cumhaz = 0;
-			denom = 0;
+			cumhaz = 0.0;
+			denom = 0.0;
 			for (j = 0; j < nvar; j++)
 			{
 				a[j] = 0;
@@ -105,8 +109,8 @@ Rcpp::NumericMatrix agscore3(Rcpp::NumericVector tstart,
 		meanwt = 0;
 		deaths = 0;
 		// done at definition.
-		// for (i = 0; i < nvar; i++)
-		// 	a2[i] = 0;
+		for (i = 0; i < nvar; i++)
+			a2[i] = 0;
 
 		for (; person >= 0 && tstop[person] == dtime; person--)
 		{
@@ -174,12 +178,12 @@ Rcpp::NumericMatrix agscore3(Rcpp::NumericVector tstart,
 				// **  since they don't deserve the full increment of hazard.
 				// */
 				// done at definition now.
-				// for (i = 0; i < nvar; i++)
-				// {
-				// 	mh1[i] = 0;
-				// 	mh2[i] = 0;
-				// 	mh3[i] = 0;
-				// }
+				for (i = 0; i < nvar; i++)
+				{
+					mh1[i] = 0;
+					mh2[i] = 0;
+					mh3[i] = 0;
+				}
 				meanwt /= deaths; // /* average weight of a death */
 				for (dd = 0; dd < deaths; dd++)
 				{

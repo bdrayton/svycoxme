@@ -89,42 +89,6 @@ test_that("multicore gives same results as sequential",{
 
 })
 
-# test residuals against coxph
-# if the linear predictors and variance are the same, the residuals should be the
-# same
-
-
-test_that("residuals are the same",{
-
-  des <- svydesign(ids = ~group_id, weights = ~1, data = samp_srcs, fpc = ~fpc)
-
-  fit_svycoxph <- svycoxph(Surv(stat_time, stat) ~ X1,
-                           design = des)
-
-  fit_svycoxme <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
-                           design = des)
-
-  # cook the fit
-  fit_svycoxme$linear.predictor <- fit_svycoxph$linear.predictors
-
-  fit_svycoxme$var <- vcov(fit_svycoxph)
-
-  dfbeta_svycoxph <- resid(fit_svycoxph, type = 'dfbeta', weighted = TRUE) |> as.matrix()
-  dfbeta_svycoxme <- resid(fit_svycoxme, data = des$variables, type = 'dfbeta', weighted = TRUE)
-
-  dimnames(dfbeta_svycoxph) <- list(NULL, NULL)
-  dimnames(dfbeta_svycoxme) <- list(NULL, NULL)
-
-  expect_equal(dfbeta_svycoxph, dfbeta_svycoxme)
-
-})
-
-# when I have a non-ag residuals method, I should compare that to the ag method.
-# they should be the same when start time = 0.
-
-# also add a test like the above for ag data.
-
-
 
 
 

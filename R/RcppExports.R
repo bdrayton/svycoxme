@@ -9,6 +9,10 @@ agscore3 <- function(tstart, tstop, event, covar, strata, score, weights, sort1,
     .Call(`_svycoxme_agscore3`, tstart, tstop, event, covar, strata, score, weights, sort1, method)
 }
 
+coxscore2 <- function(time, status, covar, strata, score, weights, method) {
+    .Call(`_svycoxme_coxscore2`, time, status, covar, strata, score, weights, method)
+}
+
 # Register entry points for exported C++ functions
 methods::setLoadAction(function(ns) {
     .Call(`_svycoxme_RcppExport_registerCCallable`)
