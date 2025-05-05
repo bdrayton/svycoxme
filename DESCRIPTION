@@ -1,10 +1,10 @@
 Package: svycoxme
-Title: Mixed-effects Cox models for complex samples
+Title: Mixed-Effects Cox Models for Complex Samples
 Version: 0.0.1.0
 Authors@R: 
     person(given = "Bradley",
            family = "Drayton",
-           role = c("aut", "cre"),
+           role = c("aut", "cre", "cph"),
            email = "brad.drayton@auckland.ac.nz")
 Description: Mixed-effect proportional hazards models for multistage stratified, 
    cluster-sampled, unequally weighted survey samples. Provides variance 
@@ -31,3 +31,5 @@ Suggests:
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+URL: https://github.com/bdrayton/svycoxme
+BugReports: https://github.com/bdrayton/svycoxme/issues

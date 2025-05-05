@@ -13,6 +13,12 @@ provides variances estimation by Taylor series linearisation or replicate weight
 
 ## Installation
 
+You can install svycoxme from CRAN with:
+
+``` r
+install.packages("svycoxme")
+```
+
 You can install the development version of svycoxme from [GitHub](https://github.com/) with:
 
 ``` r
