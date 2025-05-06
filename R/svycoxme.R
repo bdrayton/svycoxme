@@ -26,13 +26,13 @@ NULL
 #' @importFrom Rcpp evalCpp
 #'
 #' @examples
-#' des <- svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
+#' des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
 #' fit1 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                  design = des)
 #' summary(fit1)
 #'
 #' # with replicate weights
-#' repdes <- as.svrepdesign(des, type = "bootstrap")
+#' repdes <- survey::as.svrepdesign(des, type = "bootstrap")
 #' fit2 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                  design = repdes)
 #' summary(fit2)
@@ -435,7 +435,7 @@ AIC.svycoxme <- function(object, ...) {
 #'
 #' @examples
 #'
-#' fit1 <- coxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id), data = samp_srcs)
+#' fit1 <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id), data = samp_srcs)
 #' dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
 #' head(dfbeta_res)
 #'
