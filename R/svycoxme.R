@@ -217,20 +217,11 @@ svycoxme.svyrep.design <-
     if (!is.null(subset))
       design <- design[subset,]
 
-    # set up of futures needs to occur outside
-    # if (multicore && !requireNamespace("future.apply", quietly = TRUE))
-    #   multicore <- FALSE
-    # if (multicore) {
-    #   message("future.apply is used for parallel processing")
-    # }
-
     data <- design$variables
     g <- match.call()
     g$design <- NULL
     g$return.replicates <- NULL
     g$weights <- quote(.survey.prob.weights)
-    ## change to coxme
-    # g[[1]] <- quote(coxph)
     g[[1]] <- quote(coxme::coxme)
     g$x <- TRUE
     scale <- design$scale
@@ -246,11 +237,6 @@ svycoxme.svyrep.design <-
     .survey.prob.weights <- pwts
     g$control = control
     full <- with(data, eval(g))
-    # full <- eval(g)
-
-    # Not needed with coxme
-    # if (inherits(full, "coxph.penal"))
-    #   warning("svycoxph does not support penalised terms")
     nas <- attr(full$model, "na.action")
     nreps <- ncol(design$repweights)
     betas <- matrix(ncol = length(coef(full)), nrow = nreps)
@@ -275,24 +261,12 @@ svycoxme.svyrep.design <-
     beta0 <- coef(full)
     # vinit needs an unnamed list of start values, matched by position.
     theta0 <- unname(lapply(coxme::VarCorr(full), unname))
-    EPSILON <- 1e-10
-
-    # if (full$method %in% c("efron", "breslow")) {
-    #   if (attr(full$y, "type") == "right")
-    #     fitter <- coxph.fit
-    #   else if (attr(full$y, "type") == "counting")
-    #     fitter <- survival::agreg.fit
-    #   else stop("invalid survival type")
-    # }
-    # else fitter <- survival::agexact.fit
-    ## Make fitter coxme, always. Would be interesting to test with different Surv() types to see what happens. I think this is done now. only two surv types work.
-    ## Or would it be better to use coxph.fit, with an offset term? no
 
     g$init <- beta0
     g$vinit <- theta0
 
     replicate_fit_function <- function(i){
-      # message(paste("iteration", i))
+
       weights_temp = as.vector(wts[, i]) * pw1
 
       .survey.prob.weights <- weights_temp[which(weights_temp != 0)]
@@ -310,21 +284,19 @@ svycoxme.svyrep.design <-
       if (inherits(fit, "try-error")) {
         list(
           beta   = rep(NA, ncol(betas))
-          ,theta  = rep(NA, ncol(thetas))
-          ,frails = rep(NA, ncol(frails))
+          # ,theta  = rep(NA, ncol(thetas))
+          # ,frails = rep(NA, ncol(frails))
         )
 
       } else {
         list(
           beta   = coef(fit)
-          ,theta  = unlist(coxme::VarCorr(fit))
-          ,frails = unlist(coxme::random.effects(fit))
+          # ,theta  = unlist(coxme::VarCorr(fit))
+          # ,frails = unlist(coxme::random.effects(fit))
         )
 
       }
     }
-
-
 
     ## multicore
     if (multicore) {
@@ -340,9 +312,9 @@ svycoxme.svyrep.design <-
 
       for(i in 1:ncol(wts)){
         betas[i,]  <- replicate_fits[[i]][["beta"]]
-        thetas[i,] <- replicate_fits[[i]][["theta"]]
-        new_frails <- replicate_fits[[i]][["frails"]]
-        frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
+        # thetas[i,] <- replicate_fits[[i]][["theta"]]
+        # new_frails <- replicate_fits[[i]][["frails"]]
+        # frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
       }
 
     }
@@ -352,9 +324,9 @@ svycoxme.svyrep.design <-
         replicate_fits <- lapply(1:ncol(wts), replicate_fit_function)
 
         betas[i,]  <- replicate_fits[[i]][["beta"]]
-        thetas[i,] <- replicate_fits[[i]][["theta"]]
-        new_frails <- replicate_fits[[i]][["frails"]]
-        frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
+        # thetas[i,] <- replicate_fits[[i]][["theta"]]
+        # new_frails <- replicate_fits[[i]][["frails"]]
+        # frails[i, which(names(full_frails) %in% names(new_frails))] <- new_frails
 
       }
     }
@@ -362,17 +334,16 @@ svycoxme.svyrep.design <-
       design <- design[-nas,]
     v <- survey::svrVar(betas, scale, rscales, mse = design$mse, coef = beta0)
     full$var <- v
-    # add in stuff for bootstrapping theta. No, can't.
-    v <- survey::svrVar(thetas, scale, rscales, mse = FALSE, coef = theta0)
-    full$vvar <- v
+    # v <- survey::svrVar(thetas, scale, rscales, mse = FALSE, coef = theta0)
+    # full$vvar <- v
 
     if (return.replicates) {
       attr(betas, "scale") <- design$scale
       attr(betas, "rscales") <- design$rscales
       attr(betas, "mse") <- design$mse
       full$replicates <- betas
-      full$replicates_theta <- thetas
-      full$replicates_frail <- frails
+      # full$replicates_theta <- thetas
+      # full$replicates_frail <- frails
     }
 
     full$naive.var <- NULL
