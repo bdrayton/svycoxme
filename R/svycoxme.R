@@ -435,7 +435,8 @@ AIC.svycoxme <- function(object, ...) {
 #'
 #' @examples
 #'
-#' fit1 <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id), data = samp_srcs)
+#' fit1 <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#'                      data = samp_srcs)
 #' dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
 #' head(dfbeta_res)
 #'
