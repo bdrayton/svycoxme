@@ -28,9 +28,10 @@ devtools::install_github("bdrayton/svycoxme")
 
 ## Example
 
-This is a basic example using the [samp_srcs](/man/samp_srcs.Rd) dataset provided with the package
+This is a basic example using the [samp_srcs](/man/samp_srcs.Rd) dataset provided with the package.
 
 ``` r
+library(survey)
 library(svycoxme)
 des <- svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
 
