@@ -37,7 +37,7 @@ An observation's contribution to the score vector includes values for every fixe
 }
 \examples{
 
-fit1 <- coxme::coxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+fit1 <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
                      data = samp_srcs)
 dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
 

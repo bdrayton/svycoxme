@@ -74,5 +74,32 @@ ppsvar <- function (x, design)
   rval
 }
 
+# survey:::htvar.matrix
 
+htvar.mat <- function (xcheck, Dcheck)
+{
+  if (is.null(dim(xcheck)))
+    xcheck <- as.matrix(xcheck)
+  rval <- apply(xcheck, 2, function(xicheck) apply(xcheck,
+                                                   2, function(xjcheck) as.matrix(Matrix::crossprod(xicheck,
+                                                                                                    Dcheck %*% xjcheck))))
+  if (is.null(dim(rval)))
+    dim(rval) <- c(1, 1)
+  rval
+}
+
+# survey:::ygvar.matrix
+
+ygvar.matrix <- function (xcheck, Dcheck)
+{
+  ht <- htvar.matrix(xcheck, Dcheck)
+  if (is.null(dim(xcheck))) {
+    corr <- sum(Dcheck %*% (xcheck * xcheck))
+  }
+  else {
+    corr <- apply(xcheck, 2, function(xicheck) apply(xcheck,
+                                                     2, function(xjcheck) sum(Dcheck %*% (xicheck * xjcheck))))
+  }
+  rval <- ht - corr
+}
 

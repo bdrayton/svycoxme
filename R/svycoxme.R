@@ -31,20 +31,20 @@ NULL
 #'
 #' @examples
 #' des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
-#' fit1 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#' fit1 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                  design = des)
 #' summary(fit1)
 #'
 #' # with replicate weights
 #' repdes <- survey::as.svrepdesign(des, type = "bootstrap")
-#' fit2 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#' fit2 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                  design = repdes)
 #' summary(fit2)
 #'
 #' # use multicore processing
 #' n_cores = floor(parallelly::availableCores() * 0.8)
 #' future::plan("multicore", workers = n_cores)
-#' fit3 <- svycoxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#' fit3 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                  design = repdes, multicore = TRUE)
 #' all.equal(coef(fit2), coef(fit3))
 #' future::plan("sequential")
@@ -436,7 +436,7 @@ AIC.svycoxme <- function(object, ...) {
 #'
 #' @examples
 #'
-#' fit1 <- coxme::coxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#' fit1 <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                      data = samp_srcs)
 #' dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
 #'
