@@ -27,11 +27,19 @@
 \item{...}{other unused arguments.}
 }
 \value{
-The score residuals are each observation's contribution to the score vector. Two transformations of this are often more useful: dfbeta is the approximate change in the coefficient vector if that observation were dropped, and dfbetas is the approximate change in the coefficients, scaled by the standard error for the coefficients.
+A matrix of residuals. The score residuals are each observation's contribution to the score vector. Two transformations of this are often more useful: dfbeta is the approximate change in the coefficient vector if that observation were dropped, and dfbetas is the approximate change in the coefficients, scaled by the standard error for the coefficients.
 }
 \description{
 Calculates score, dfbeta, or dfbetas residuals for a mixed-effects proportional hazards model. Only fixed-effect components are calculated; see Details.
 }
 \details{
 An observation's contribution to the score vector includes values for every fixed and random effect in the fitted model. In many cases, the number of random effects will be large, and most residuals will be zero. Until efficient sparse computation is implemented, it is too expensive computationally and on memory to calculate the random effect residual terms, so they are excluded. This is likely to change, and the parameter \code{include_re} is include for future expansion.
+}
+\examples{
+
+fit1 <- coxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id), data = samp_srcs)
+dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
+head(dfbeta_res)
+
+
 }

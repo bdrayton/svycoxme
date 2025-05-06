@@ -2,8 +2,6 @@
 #' @importFrom stats coef model.frame model.response naresid resid vcov weights reformulate
 #' @importFrom future plan
 #' @importFrom parallelly availableCores
-#' @import survey
-#' @import coxme
 NULL
 
 #' Survey-weighted mixed-effects Cox models
@@ -55,7 +53,7 @@ svycoxme <- function(formula, design, subset = NULL, rescale = TRUE, multicore =
 
 
 #' @method svycoxme DBIsvydesign
-#' @export
+# export
 
 svycoxme.DBIsvydesign <- function(formula, design, subset, ...) {
   warning("coxme has not been implemented for class = \"DBIsvydesign\"")
@@ -67,7 +65,7 @@ svycoxme.DBIsvydesign <- function(formula, design, subset, ...) {
 }
 
 #' @method svycoxme survey.design
-#' @export
+# export
 
 svycoxme.survey.design <-
   function(formula,
@@ -95,10 +93,8 @@ svycoxme.survey.design <-
       g$weights <- quote(.survey.prob.weights)
     else
       g$weights <- bquote(.survey.prob.weights * .(g$weights))
-    ## g[[1]]<-quote(coxph)
     g[[1]] <- quote(coxme::coxme)
 
-    # g$data<-quote(data)
     g$data <- as.name("data")
     g$subset <- quote(.survey.prob.weights > 0)
     # g$model <- TRUE
@@ -153,27 +149,27 @@ svycoxme.survey.design <-
 
 
     if (inherits(design, "survey.design2")) {
-      g$variance <- svyrecvar(dbeta,
-                              design$cluster,
-                              design$strata,
-                              design$fpc,
-                              postStrata = design$postStrata)
+      g$variance <- survey::svyrecvar(dbeta,
+                                      design$cluster,
+                                      design$strata,
+                                      design$fpc,
+                                      postStrata = design$postStrata)
     }
     # I'm not sure if these will work correctly. Needs testing.
     else if (inherits(design, "twophase")) {
       warning('twophase design has not been tested')
-      g$variance <- twophasevar(dbeta, design)
+      g$variance <- survival::twophasevar(dbeta, design)
     }
     else if (inherits(design, "twophase2")) {
       warning('twophase2 design has not been tested')
-      g$variance <- twophase2var(dbeta, design)
+      g$variance <- survival::twophase2var(dbeta, design)
     }
     else if (inherits(design, "pps")) {
       warning('pps design has not been tested')
-      g$variance <- ppsvar(dbeta, design)
+      g$variance <- survey::ppsvar(dbeta, design)
     }
     else {
-      g$variance <- svyCprod(
+      g$variance <- survey::svyCprod(
         dbeta,
         design$strata,
         design$cluster[[1]],
@@ -195,7 +191,7 @@ svycoxme.survey.design <-
     g$loglik <- rep(NA_real_, 3)
     g$rscore <- NULL
     g$score <- NA
-    g$degf.resid <- degf(design) - length(coef(g)[!is.na(coef(g))]) + 1
+    g$degf.resid <- survey::degf(design) - length(coef(g)[!is.na(coef(g))]) + 1
 
     g
   }
@@ -203,7 +199,7 @@ svycoxme.survey.design <-
 
 
 #' @method svycoxme svyrep.design
-#' @export
+# export
 
 svycoxme.svyrep.design <-
   function (formula,
@@ -363,10 +359,10 @@ svycoxme.svyrep.design <-
     }
     if (length(nas))
       design <- design[-nas,]
-    v <- svrVar(betas, scale, rscales, mse = design$mse, coef = beta0)
+    v <- survey::svrVar(betas, scale, rscales, mse = design$mse, coef = beta0)
     full$var <- v
-    # add in stuff for bootstrapping theta
-    v <- svrVar(thetas, scale, rscales, mse = FALSE, coef = theta0)
+    # add in stuff for bootstrapping theta. No, can't.
+    v <- survey::svrVar(thetas, scale, rscales, mse = FALSE, coef = theta0)
     full$vvar <- v
 
     if (return.replicates) {
@@ -384,7 +380,7 @@ svycoxme.svyrep.design <-
     full$rscore <- NULL
     full$score <- NA
     full$degf.residual <-
-      degf(design) + 1 - length(coef(full)[!is.na(coef(full))])
+      survey::degf(design) + 1 - length(coef(full)[!is.na(coef(full))])
     class(full) <- c("svrepcoxme", "svycoxme", class(full))
     full$call <- match.call()
     full$printcall <- sys.call(-1)
@@ -393,6 +389,8 @@ svycoxme.svyrep.design <-
   }
 
 #' @exportS3Method survey::svycontrast
+
+
 
 svycontrast.svycoxme <- function(stat, contrasts, add = FALSE, ...) {
   stop("svycontrast has not been implemented for \"class = svycoxme\" ")
@@ -433,7 +431,13 @@ AIC.svycoxme <- function(object, ...) {
 #' @param include_re logical flag indicating if residuals for random effects should be returned. This flag is currently ignored; see Details.
 #' @param ...	other unused arguments.
 #'
-#' @return The score residuals are each observation's contribution to the score vector. Two transformations of this are often more useful: dfbeta is the approximate change in the coefficient vector if that observation were dropped, and dfbetas is the approximate change in the coefficients, scaled by the standard error for the coefficients.
+#' @return A matrix of residuals. The score residuals are each observation's contribution to the score vector. Two transformations of this are often more useful: dfbeta is the approximate change in the coefficient vector if that observation were dropped, and dfbetas is the approximate change in the coefficients, scaled by the standard error for the coefficients.
+#'
+#' @examples
+#'
+#' fit1 <- coxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id), data = samp_srcs)
+#' dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
+#' head(dfbeta_res)
 #'
 #'
 #' @method residuals coxme
@@ -620,7 +624,7 @@ residuals.coxme <- function (object,
 
 
 #' @method summary svycoxme
-#' @export
+# export
 #'
 
 summary.svycoxme <- function(object, ...) {
@@ -634,7 +638,7 @@ summary.svycoxme <- function(object, ...) {
 
 
 #' @method print svycoxme
-#' @export
+# export
 #'
 
 print.svycoxme <- function (object, ...) {
@@ -647,7 +651,7 @@ print.svycoxme <- function (object, ...) {
 }
 
 #' @method logLik svycoxme
-#' @export
+# export
 
 logLik.svycoxme <- function(object, ...) {
   NextMethod()
@@ -655,7 +659,7 @@ logLik.svycoxme <- function(object, ...) {
 }
 
 #' @method anova svycoxme
-#' @export
+# export
 
 anova.svycoxme <- function(object, ...) {
   warning("anova has not been implemented for \"class = svycoxme\" ")
@@ -663,7 +667,7 @@ anova.svycoxme <- function(object, ...) {
 }
 
 #' @method formula svycoxme
-#' @export
+# export
 
 formula.svycoxme <- function(object, ...) {
   NextMethod()
@@ -671,7 +675,7 @@ formula.svycoxme <- function(object, ...) {
 }
 
 #' @method predict svycoxme
-#' @export
+# export
 
 predict.svycoxme <- function(object, ...) {
   warning("predict has not been implemented for \"class = svycoxme\"")
@@ -680,7 +684,7 @@ predict.svycoxme <- function(object, ...) {
 }
 
 #' @method vcov svycoxme
-#' @export
+# export
 
 vcov.svycoxme <- function(object, ...) {
   NextMethod()
