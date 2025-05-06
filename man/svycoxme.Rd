@@ -54,9 +54,9 @@ svycoxme(
 
 \item{rescale}{Rescale weights to improve numerical stability.}
 
-\item{control}{Optional list of \link[coxme]{coxme} control options. See \link[coxme.control]{coxme.control} for details.}
+\item{control}{Optional list of \code{\link[coxme]{coxme}} control options. See \code{\link[coxme]{coxme.control}} for details.}
 
-\item{...}{Other arguments passed to \link[coxme]{coxme}.}
+\item{...}{Other arguments passed to \code{\link[coxme]{coxme}}.}
 
 \item{multicore}{For replicate weight designs. Should parallel processing be used?}
 
@@ -69,8 +69,8 @@ An object of class \code{svycoxme}.
 Fit a mixed-effect proportional hazards model to data from a complex design.
 }
 \details{
-Parallel processing is done with \link[future.apply]{future_lapply}. Future planning
-is left to the user, e.g. using \link[future]{plan} before the call to \code{svycoxme}.
+Parallel processing is done with \code{\link[future.apply]{future_lapply}}. Future planning
+is left to the user, e.g. using \code{\link[future]{plan}} before the call to \code{svycoxme}.
 Note that \code{svycoxme.DBIsvydesign} has not been implemented yet.
 }
 \examples{

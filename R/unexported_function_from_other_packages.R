@@ -39,7 +39,40 @@ getFixedFormula <- function (form)
   form
 }
 
+# survey:::ppsvar
 
+ppsvar <- function (x, design)
+{
+  postStrata <- design$postStrata
+  est <- design$variance
+  if (!is.null(postStrata)) {
+    for (psvar in postStrata) {
+      if (inherits(psvar, "greg_calibration")) {
+        if (psvar$stage == 0) {
+          x <- qr.resid(psvar$qr, x/psvar$w) * psvar$w
+        }
+        else {
+          stop("calibration within clusters not yet available for PPS designs")
+        }
+      }
+      else {
+        psw <- attr(psvar, "weights")
+        postStrata <- as.factor(psvar)
+        psmeans <- rowsum(x/psw, psvar, reorder = TRUE)/as.vector(table(factor(psvar)))
+        x <- x - psmeans[match(psvar, sort(unique(psvar))),
+        ] * psw
+      }
+    }
+  }
+  dcheck <- design$dcheck
+  if (length(dcheck) != 1)
+    stop("Multistage not implemented yet")
+  rval <- switch(est, HT = htvar.matrix(rowsum(x, dcheck[[1]]$id,
+                                               reorder = FALSE), dcheck[[1]]$dcheck), YG = ygvar.matrix(rowsum(x,
+                                                                                                               dcheck[[1]]$id, reorder = FALSE), dcheck[[1]]$dcheck),
+                 stop("can't happen"))
+  rval
+}
 
 
 

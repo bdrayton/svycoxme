@@ -2,24 +2,25 @@
 #' @importFrom stats coef model.frame model.response naresid resid vcov weights reformulate
 #' @importFrom future plan
 #' @importFrom parallelly availableCores
+#' @importFrom survival Surv
 NULL
 
 #' Survey-weighted mixed-effects Cox models
 #'
 #' Fit a mixed-effect proportional hazards model to data from a complex design.
 #'
-#' Parallel processing is done with \link[future.apply]{future_lapply}. Future planning
-#' is left to the user, e.g. using \link[future]{plan} before the call to `svycoxme`.
+#' Parallel processing is done with \code{\link[future.apply]{future_lapply}}. Future planning
+#' is left to the user, e.g. using \code{\link[future]{plan}} before the call to `svycoxme`.
 #' Note that `svycoxme.DBIsvydesign` has not been implemented yet.
 #'
 #' @param formula Model formula.
 #' @param design `survey.design` object. It must contain all variables in the formula.
 #' @param subset Expression to select a subpopulation.
 #' @param rescale Rescale weights to improve numerical stability.
-#' @param control Optional list of \link[coxme]{coxme} control options. See \link[coxme.control]{coxme.control} for details.
+#' @param control Optional list of \code{\link[coxme]{coxme}} control options. See \code{\link[coxme]{coxme.control}} for details.
 #' @param multicore For replicate weight designs. Should parallel processing be used?
 #' @param return.replicates For replicate weight designs. Should replicates be returned?
-#' @param ... Other arguments passed to \link[coxme]{coxme}.
+#' @param ... Other arguments passed to \code{\link[coxme]{coxme}}.
 #'
 #' @return An object of class `svycoxme`.
 #'
@@ -171,7 +172,7 @@ svycoxme.survey.design <-
     }
     else if (inherits(design, "pps")) {
       warning('pps design has not been tested')
-      g$variance <- survey::ppsvar(dbeta, design)
+      g$variance <- ppsvar(dbeta, design)
     }
     else {
       g$variance <- survey::svyCprod(
@@ -424,7 +425,7 @@ AIC.svycoxme <- function(object, ...) {
 #'
 #' An observation's contribution to the score vector includes values for every fixed and random effect in the fitted model. In many cases, the number of random effects will be large, and most residuals will be zero. Until efficient sparse computation is implemented, it is too expensive computationally and on memory to calculate the random effect residual terms, so they are excluded. This is likely to change, and the parameter \code{include_re} is include for future expansion.
 #'
-#' @param object an object inheriting from class \code{coxme}. This includes the output from \code{coxme} and \code{svycoxme} functions.
+#' @param object an object inheriting from class \code{coxme}. This includes the output from \code{\link[coxme]{coxme}} and \code{\link{svycoxme}} functions.
 #' @param data the data used to generate \code{object}.
 #' @param type character string indicating the type of residual desired. Possible values are "score", "dfbeta"', "dfbetas".
 #' @param weighted	if TRUE and the model was fit with case weights, then the weighted residuals are returned.
@@ -435,7 +436,7 @@ AIC.svycoxme <- function(object, ...) {
 #'
 #' @examples
 #'
-#' fit1 <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+#' fit1 <- coxme::coxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                      data = samp_srcs)
 #' dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
 #'
@@ -643,8 +644,8 @@ summary.svycoxme <- function(object, ...) {
 # export
 #'
 
-print.svycoxme <- function (object, ...) {
-  print(object$survey.design,
+print.svycoxme <- function (x, ...) {
+  print(x$survey.design,
         varnames = FALSE,
         design.summaries = FALSE,
         ...)

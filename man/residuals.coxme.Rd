@@ -14,7 +14,7 @@
 )
 }
 \arguments{
-\item{object}{an object inheriting from class \code{coxme}. This includes the output from \code{coxme} and \code{svycoxme} functions.}
+\item{object}{an object inheriting from class \code{coxme}. This includes the output from \code{\link[coxme]{coxme}} and \code{\link{svycoxme}} functions.}
 
 \item{data}{the data used to generate \code{object}.}
 
@@ -37,7 +37,7 @@ An observation's contribution to the score vector includes values for every fixe
 }
 \examples{
 
-fit1 <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+fit1 <- coxme::coxme(Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
                      data = samp_srcs)
 dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
 
