@@ -7,9 +7,9 @@
 # make sure they look right. The tests referencing these objects
 # are there to catch accidental changes to the output.
 
-des <- svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
+des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
 
-fit1 = svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
+fit1 = svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
 
 coef_fit1 <- coef(fit1)
 summary_fit1 <- summary(fit1)

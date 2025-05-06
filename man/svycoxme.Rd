@@ -71,7 +71,7 @@ Fit a mixed-effect proportional hazards model to data from a complex design.
 \details{
 Parallel processing is done with \link[future.apply]{future_lapply}. Future planning
 is left to the user, e.g. using \link[future]{plan} before the call to \code{svycoxme}.
-Note that svycoxme.DBIsvydesign has not been implemented yet.
+Note that \code{svycoxme.DBIsvydesign} has not been implemented yet.
 }
 \examples{
 des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)

@@ -4,7 +4,7 @@
 test_that('compare summary(fit1) to saved value', {
   des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
 
-  fit1 = svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
+  fit1 = svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
 
   expect_equal(summary(fit1), summary_fit1)
 })
@@ -13,7 +13,7 @@ test_that('compare summary(fit1) to saved value', {
 test_that("compare coef(fit) to saved value", {
   des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
 
-  fit1 = svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
+  fit1 = svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
 
   expect_equal(coef(fit1), coef_fit1)
 })
@@ -22,7 +22,7 @@ test_that("compare coef(fit) to saved value", {
 # test_that("compare print(fit) to saved value", {
 #   des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
 #
-#   fit1 = svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
+#   fit1 = svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
 #
 #   expect_equal(capture_output_lines(print(fit1)), print_fit1)
 #
@@ -31,7 +31,7 @@ test_that("compare coef(fit) to saved value", {
 test_that("Check that print generates output",{
   des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs)
 
-  fit1 = svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
+  fit1 = svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = des)
 
   expect_output(print(fit1))
 
@@ -48,10 +48,10 @@ test_that("No errors with svyrep designs",{
   repdes4 <- survey::as.svrepdesign(des, type = 'subbootstrap')
   repdes5 <- survey::as.svrepdesign(des, type = 'mrbbootstrap')
 
-  expect_no_error(fit1 <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = repdes1))
-  expect_no_error(fit2 <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = repdes3))
-  expect_no_error(fit3 <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = repdes4))
-  expect_no_error(fit4 <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id), design = repdes5))
+  expect_no_error(fit1 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = repdes1))
+  expect_no_error(fit2 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = repdes3))
+  expect_no_error(fit3 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = repdes4))
+  expect_no_error(fit4 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id), design = repdes5))
 
   expect_output(summary(fit1))
   expect_output(summary(fit2))
@@ -76,28 +76,18 @@ test_that("multicore gives same results as sequential",{
   future::plan(future::multicore,
                workers = floor(parallelly::availableCores() * 0.8))
 
-  expect_no_error(fit_multicore <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
+  expect_no_error(fit_multicore <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id),
                                             design = repdes1, multicore = TRUE))
 
   future::plan(future::sequential)
 
-  fit_sequential <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
+  fit_sequential <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id),
                              design = repdes1)
 
   expect_equal(coef(fit_multicore), coef(fit_sequential))
   expect_equal(vcov(fit_multicore), vcov(fit_sequential))
 
 })
-
-
-
-
-
-
-
-
-
-
 
 
 
