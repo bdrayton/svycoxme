@@ -2,6 +2,8 @@
 #' @importFrom stats coef model.frame model.response naresid resid vcov weights reformulate
 #' @importFrom future plan
 #' @importFrom parallelly availableCores
+#' @import survey
+#' @import coxme
 NULL
 
 #' Survey-weighted mixed-effects Cox models
@@ -635,8 +637,8 @@ summary.svycoxme <- function(object, ...) {
 #' @export
 #'
 
-print.svycoxme <- function (x, ...) {
-  print(x$survey.design,
+print.svycoxme <- function (object, ...) {
+  print(object$survey.design,
         varnames = FALSE,
         design.summaries = FALSE,
         ...)
@@ -647,7 +649,7 @@ print.svycoxme <- function (x, ...) {
 #' @method logLik svycoxme
 #' @export
 
-logLik.svycoxme <- function(x, ...) {
+logLik.svycoxme <- function(object, ...) {
   NextMethod()
 
 }
@@ -655,7 +657,7 @@ logLik.svycoxme <- function(x, ...) {
 #' @method anova svycoxme
 #' @export
 
-anova.svycoxme <- function(x, ...) {
+anova.svycoxme <- function(object, ...) {
   warning("anova has not been implemented for \"class = svycoxme\" ")
 
 }
@@ -663,7 +665,7 @@ anova.svycoxme <- function(x, ...) {
 #' @method formula svycoxme
 #' @export
 
-formula.svycoxme <- function(x, ...) {
+formula.svycoxme <- function(object, ...) {
   NextMethod()
 
 }
@@ -671,7 +673,7 @@ formula.svycoxme <- function(x, ...) {
 #' @method predict svycoxme
 #' @export
 
-predict.svycoxme <- function(x, ...) {
+predict.svycoxme <- function(object, ...) {
   warning("predict has not been implemented for \"class = svycoxme\"")
 
 
