@@ -76,7 +76,7 @@ ppsvar <- function (x, design)
 
 # survey:::htvar.matrix
 
-htvar.mat <- function (xcheck, Dcheck)
+htvar.matrix <- function (xcheck, Dcheck)
 {
   if (is.null(dim(xcheck)))
     xcheck <- as.matrix(xcheck)
