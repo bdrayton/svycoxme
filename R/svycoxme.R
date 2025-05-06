@@ -10,12 +10,15 @@ NULL
 #'
 #' Parallel processing is done with \link[future.apply]{future_lapply}. Future planning
 #' is left to the user, e.g. using \link[future]{plan} before the call to `svycoxme`.
+#' Note that `svycoxme.DBIsvydesign` has not been implemented yet.
 #'
 #' @param formula Model formula.
 #' @param design `survey.design` object. It must contain all variables in the formula.
 #' @param subset Expression to select a subpopulation.
 #' @param rescale Rescale weights to improve numerical stability.
-#' @param multicore Flag indicating if parallel processing should be used with replicate weight designs.
+#' @param control Optional list of \link[coxme]{coxme} control options. See \link[coxme.control]{coxme.control} for details.
+#' @param multicore For replicate weight designs. Should parallel processing be used?
+#' @param return.replicates For replicate weight designs. Should replicates be returned?
 #' @param ... Other arguments passed to \link[coxme]{coxme}.
 #'
 #' @return An object of class `svycoxme`.
@@ -46,17 +49,22 @@ NULL
 #' future::plan("sequential")
 #'
 
-svycoxme <- function(formula, design, subset = NULL, rescale = TRUE, multicore = FALSE, ...) {
+svycoxme <- function(formula, design, subset = NULL, rescale = TRUE,
+                     control = coxme::coxme.control(), ...) {
   .svycheck(design)
   UseMethod("svycoxme", design)
 }
 
 
 #' @method svycoxme DBIsvydesign
-# export
+#' @export
+#' @rdname svycoxme
 
-svycoxme.DBIsvydesign <- function(formula, design, subset, ...) {
-  warning("coxme has not been implemented for class = \"DBIsvydesign\"")
+
+svycoxme.DBIsvydesign <- function(formula, design, subset = NULL, rescale = TRUE,
+                                  control = coxme::coxme.control(), ...) {
+
+  warning("svycoxme has not been implemented for class = \"DBIsvydesign\"")
 
   call = match.call()
 
@@ -65,15 +73,12 @@ svycoxme.DBIsvydesign <- function(formula, design, subset, ...) {
 }
 
 #' @method svycoxme survey.design
-# export
+#' @export
+#' @rdname svycoxme
 
 svycoxme.survey.design <-
-  function(formula,
-           design,
-           subset = NULL,
-           rescale = TRUE,
-           multicore = FALSE,
-           ...) {
+  function(formula, design, subset = NULL, rescale = TRUE,
+           control = coxme::coxme.control(), ...) {
     subset <- substitute(subset)
     subset <- eval(subset, model.frame(design), parent.frame())
     if (!is.null(subset))
@@ -199,18 +204,13 @@ svycoxme.survey.design <-
 
 
 #' @method svycoxme svyrep.design
-# export
+#' @export
+#' @rdname svycoxme
 
 svycoxme.svyrep.design <-
-  function (formula,
-            design,
-            subset = NULL,
-            rescale = NULL,
-            ...,
-            control = coxme::coxme.control(),
-            return.replicates = FALSE,
-            na.action,
-            multicore = getOption("survey.multicore")) {
+  function(formula, design, subset = NULL, rescale = TRUE,
+           control = coxme::coxme.control(),
+           multicore = getOption("survey.multicore"), return.replicates = FALSE, ...) {
     subset <- substitute(subset)
     subset <- eval(subset, design$variables, parent.frame())
     if (!is.null(subset))
@@ -438,6 +438,7 @@ AIC.svycoxme <- function(object, ...) {
 #' fit1 <- coxme::coxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                      data = samp_srcs)
 #' dfbeta_res <- resid(fit1, data = samp_srcs, type = "dfbeta")
+#'
 #' head(dfbeta_res)
 #'
 #'

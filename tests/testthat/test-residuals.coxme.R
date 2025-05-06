@@ -15,10 +15,10 @@ test_that("residuals are the same: right-censored time",{
 
   des <- survey::svydesign(ids = ~group_id, weights = ~1, data = samp_srcs, fpc = ~fpc)
 
-  fit_svycoxph <- survey::svycoxph(survival::Surv(stat_time, stat) ~ X1,
+  fit_svycoxph <- survey::svycoxph(Surv(stat_time, stat) ~ X1,
                            design = des)
 
-  fit_svycoxme <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
                            design = des)
 
   # cook the fit
@@ -46,10 +46,10 @@ test_that("residuals are the same: right-censored time; ties",{
 
   des <- survey::svydesign(ids = ~group_id, weights = ~1, data = dset2, fpc = ~fpc)
 
-  fit_svycoxph <- survey::svycoxph(survival::Surv(stat_time, stat) ~ X1,
+  fit_svycoxph <- survey::svycoxph(Surv(stat_time, stat) ~ X1,
                            design = des)
 
-  fit_svycoxme <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
                            design = des)
 
   # cook the fit
@@ -76,10 +76,10 @@ test_that("residuals are the same: counting-process time",{
 
   des <- survey::svydesign(ids = ~group_id, weights = ~1, data = dset2, fpc = ~fpc)
 
-  fit_svycoxph <- survey::svycoxph(survival::Surv(start_time, stat_time, stat) ~ X1,
+  fit_svycoxph <- survey::svycoxph(Surv(start_time, stat_time, stat) ~ X1,
                            design = des)
 
-  fit_svycoxme <- svycoxme(survival::Surv(start_time, stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme <- svycoxme(Surv(start_time, stat_time, stat) ~ X1 + (1 | group_id),
                            design = des)
 
   # cook the fit
@@ -108,10 +108,10 @@ test_that("residuals are the same: counting process time; ties",{
 
   des <- survey::svydesign(ids = ~group_id, weights = ~1, data = dset2, fpc = ~fpc)
 
-  fit_svycoxph <- survey::svycoxph(survival::Surv(stat_time, stat) ~ X1,
+  fit_svycoxph <- survey::svycoxph(Surv(stat_time, stat) ~ X1,
                            design = des)
 
-  fit_svycoxme <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
                            design = des)
 
   # cook the fit
@@ -139,10 +139,10 @@ test_that("residuals are the same: right-censored vs counting-process time",{
 
   des <- survey::svydesign(ids = ~group_id, weights = ~1, data = dset2, fpc = ~fpc)
 
-  fit_svycoxme_rc <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme_rc <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
                               design = des)
 
-  fit_svycoxme_cp <- svycoxme(survival::Surv(start_time, stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme_cp <- svycoxme(Surv(start_time, stat_time, stat) ~ X1 + (1 | group_id),
                            design = des)
 
   dfbeta_svycoxme_rc <- resid(fit_svycoxme_rc, data = des$variables,
@@ -169,10 +169,10 @@ test_that("residuals are the same: right-censored vs counting-process time; ties
 
   des <- survey::svydesign(ids = ~group_id, weights = ~1, data = dset2, fpc = ~fpc)
 
-  fit_svycoxme_rc <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme_rc <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
                               design = des)
 
-  fit_svycoxme_cp <- svycoxme(survival::Surv(start_time, stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme_cp <- svycoxme(Surv(start_time, stat_time, stat) ~ X1 + (1 | group_id),
                               design = des)
 
   dfbeta_svycoxme_rc <- resid(fit_svycoxme_rc, data = des$variables,
@@ -199,10 +199,10 @@ test_that("residuals are the same: right-censored time; missing data",{
 
   des <- survey::svydesign(ids = ~group_id, weights = ~1, data = dmiss, fpc = ~fpc)
 
-  fit_svycoxph <- survey::svycoxph(survival::Surv(stat_time, stat) ~ X1,
+  fit_svycoxph <- survey::svycoxph(Surv(stat_time, stat) ~ X1,
                                    design = des)
 
-  fit_svycoxme <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + (1 | group_id),
+  fit_svycoxme <- svycoxme(Surv(stat_time, stat) ~ X1 + (1 | group_id),
                            design = des)
 
   # cook the fit
