@@ -158,11 +158,11 @@ svycoxme.survey.design <-
     # I'm not sure if these will work correctly. Needs testing.
     else if (inherits(design, "twophase")) {
       warning('twophase design has not been tested')
-      g$variance <- survival::twophasevar(dbeta, design)
+      g$variance <- survey::twophasevar(dbeta, design)
     }
     else if (inherits(design, "twophase2")) {
       warning('twophase2 design has not been tested')
-      g$variance <- survival::twophase2var(dbeta, design)
+      g$variance <- survey::twophase2var(dbeta, design)
     }
     else if (inherits(design, "pps")) {
       warning('pps design has not been tested')

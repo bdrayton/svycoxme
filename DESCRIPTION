@@ -17,6 +17,7 @@ RoxygenNote: 7.3.1
 Imports:
 	survey,
 	coxme,
+	survival,
     Rcpp,
 	lme4,
 	Matrix,
