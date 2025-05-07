@@ -35,20 +35,23 @@ NULL
 #'                  design = des)
 #' summary(fit1)
 #'
-#' # with replicate weights
-#' repdes <- survey::as.svrepdesign(des, type = "bootstrap")
+#' # with replicate weights (only 10 replicates are used to reduce CPU time)
+#' repdes <- survey::as.svrepdesign(des, type = "bootstrap", replicates = 10)
 #' fit2 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                  design = repdes)
 #' summary(fit2)
 #'
-#' # use multicore processing
-#' n_cores = floor(parallelly::availableCores() * 0.8)
+#' # use multicore processing (`n_cores = 2` to comply with CRAN policy). Otherwise,
+#' # something like, `floor(parallelly::availableCores() * 0.8)`, could be used.
+#'
+#' n_cores = 2
 #' future::plan("multicore", workers = n_cores)
 #' fit3 <- svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
 #'                  design = repdes, multicore = TRUE)
 #' all.equal(coef(fit2), coef(fit3))
 #' future::plan("sequential")
 #'
+
 
 svycoxme <- function(formula, design, subset = NULL, rescale = TRUE,
                      control = coxme::coxme.control(), ...) {
