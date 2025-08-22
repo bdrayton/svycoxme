@@ -107,7 +107,7 @@ test_that("coef and VarCorr are the same across svycoxme methods",{
                   design = repdes1)
 
   expect_equal(coef(fit1), coef(fit2))
-  expect_equal(VarCorr(fit1), VarCorr(fit3))
+  expect_equal(coxme::VarCorr(fit1), coxme::VarCorr(fit2))
 
 })
 
