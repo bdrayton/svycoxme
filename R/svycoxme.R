@@ -229,10 +229,8 @@ svycoxme.svyrep.design <-
     g$x <- TRUE
     scale <- design$scale
     rscales <- design$rscales
-    if (is.null(rescale))
+    if (rescale)
       pwts <- design$pweights / mean(design$pweights)
-    else if (rescale)
-      pwts <- design$pweights / sum(design$pweights)
     if (is.data.frame(pwts))
       pwts <- pwts[[1]]
     if (!all(all.vars(formula) %in% names(data)))

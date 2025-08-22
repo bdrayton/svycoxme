@@ -91,6 +91,26 @@ test_that("multicore gives same results as sequential",{
 
 
 
+# check that coefs and random effect variance are the same for
+# svycoxme.survey.design and svycoxme.svyrep.design
+
+test_that("coef and VarCorr are the same across svycoxme methods",{
+
+  des <- survey::svydesign(ids = ~group_id, weights = ~weight, data = samp_srcs, fpc = ~fpc)
+
+  repdes1 <- survey::as.svrepdesign(des, type = 'bootstrap', replicates = 5)
+
+  fit1 = svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+                  design = des)
+
+  fit2 = svycoxme(survival::Surv(stat_time, stat) ~ X1 + X2 + X3 + (1 | group_id),
+                  design = repdes1)
+
+  expect_equal(coef(fit1), coef(fit2))
+  expect_equal(VarCorr(fit1), VarCorr(fit3))
+
+})
+
 
 
 
